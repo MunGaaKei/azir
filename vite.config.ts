@@ -4,9 +4,13 @@ import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "node:url";
 import vike from "vike/plugin";
 import { defineConfig } from "vite";
+import vercel from "vite-plugin-vercel/vite";
 
 export default defineConfig({
-    plugins: [vike(), react()],
+    plugins: [vike(), react(), vercel()],
+    optimizeDeps: {
+        include: ["@streamdown/code"],
+    },
     resolve: {
         alias: {
             "@": fileURLToPath(new URL("./", import.meta.url)),

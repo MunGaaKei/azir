@@ -2,14 +2,7 @@ import request from "@/server/request";
 import { tryto } from "@/utils";
 import type { Model } from "@prisma/client";
 import { create } from "zustand";
-
-type ModelsStore = {
-    models: Model[];
-    initialized: boolean;
-    loading: boolean;
-    setModels: (models: Model[]) => void;
-    initModels: () => Promise<void>;
-};
+import type { ModelsStore } from "./type";
 
 export const useModelsStore = create<ModelsStore>((set, get) => ({
     models: [],

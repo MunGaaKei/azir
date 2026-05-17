@@ -2,14 +2,7 @@ import request from "@/server/request";
 import { tryto } from "@/utils";
 import type { Agent } from "@prisma/client";
 import { create } from "zustand";
-
-type AgentsStore = {
-    agents: Agent[];
-    initialized: boolean;
-    loading: boolean;
-    setAgents: (agents: Agent[]) => void;
-    initAgents: () => Promise<void>;
-};
+import type { AgentsStore } from "./type";
 
 export const useAgentsStore = create<AgentsStore>((set, get) => ({
     agents: [],

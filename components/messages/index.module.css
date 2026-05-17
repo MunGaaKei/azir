@@ -1,0 +1,113 @@
+.messages {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
+.list {
+    padding-bottom: 160px;
+}
+
+.message {
+    position: relative;
+    max-width: 86%;
+}
+
+.body {
+    padding: 12px;
+    background: var(--background-opacity-2);
+    border-radius: var(--radius);
+    white-space: pre-wrap;
+    display: inline-block;
+    max-width: 100%;
+    word-break: break-all;
+}
+
+.user {
+    margin-left: auto;
+    margin-right: 12px;
+    width: fit-content;
+}
+
+.assistant {
+    margin-left: 12px;
+    margin-right: auto;
+}
+
+.markdown {
+    color: inherit;
+}
+
+.stopped {
+    color: var(--error);
+    font-size: 14px;
+    font-weight: 500;
+    text-align: right;
+
+    &:not(:first-child) {
+        margin-top: 12px;
+    }
+}
+
+.action {
+    position: absolute;
+    top: 100%;
+    padding-top: 4px;
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.assistant .action {
+    left: 0;
+}
+
+.user .action {
+    right: 0;
+}
+
+.message:hover .action,
+.message:focus-within .action {
+    opacity: 1;
+}
+
+.messageHeader {
+    padding: 8px 0;
+}
+
+/* Scrollable message list container */
+.scrollContainer {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 72px 12px 160px;
+}
+
+/* Virtual list wrapper */
+.virtualContainer {
+    padding-bottom: 36px;
+}
+
+/* Virtual list top/bottom padding */
+.virtualPadding {
+    padding-top: 72px;
+    padding-bottom: 160px;
+}
+
+/* File download area */
+.fileActions {
+    margin-top: 12px;
+    display: flex;
+    gap: 8px;
+}
+
+/* Stop streaming button */
+.stopBtn {
+    background: var(--error-0);
+}
+
+/* Agent tag */
+.agentTag {
+    background: var(--blue-0);
+}

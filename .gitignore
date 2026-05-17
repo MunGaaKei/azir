@@ -147,6 +147,9 @@ dist
 # Sentry Vite Plugin
 .env.sentry-build-plugin
 
+# Session memories
+server/chat/memories/
+
 # aws-cdk
 .cdk.staging
 cdk.out

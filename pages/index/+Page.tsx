@@ -1,9 +1,15 @@
-import { useAgentsStore } from "@/stores/agents";
-import { useModelsStore } from "@/stores/models";
+import { Aside } from "@/components/aside";
+import AgentEditor from "@/components/editor";
+import Projects from "@/components/projects";
 
 export default function Page() {
-    const agents = useAgentsStore((state) => state.agents);
-    const models = useModelsStore((state) => state.models);
+	return (
+		<>
+			<Aside />
 
-    return <div></div>;
+			<Projects />
+
+			<AgentEditor />
+		</>
+	);
 }

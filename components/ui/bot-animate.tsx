@@ -11,10 +11,21 @@ export interface BotIconHandle {
 
 interface BotIconProps extends HTMLAttributes<HTMLDivElement> {
     size?: number;
+    fill?: string;
 }
 
 const BotAnimate = forwardRef<BotIconHandle, BotIconProps>(
-    ({ onMouseEnter, onMouseLeave, className, size = 28, ...props }, ref) => {
+    (
+        {
+            onMouseEnter,
+            onMouseLeave,
+            className,
+            size = 28,
+            fill = "none",
+            ...props
+        },
+        ref,
+    ) => {
         const controls = useAnimation();
         const isControlledRef = useRef(false);
 
@@ -57,7 +68,7 @@ const BotAnimate = forwardRef<BotIconHandle, BotIconProps>(
                 {...props}
             >
                 <svg
-                    fill="none"
+                    fill={fill}
                     height={size}
                     stroke="currentColor"
                     strokeLinecap="round"

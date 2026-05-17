@@ -1,0 +1,155 @@
+.markdown {
+    white-space: normal;
+
+    :where(p, li, blockquote) {
+        white-space: pre-wrap;
+    }
+
+    :where(pre):not(.codeBody) {
+        max-width: 100%;
+        overflow-x: auto;
+        padding: 12px;
+        border-radius: var(--radius);
+        background: color-mix(in srgb, var(--color-9) 40%, transparent);
+        white-space: pre-line;
+        background: var(--background);
+    }
+
+    :where(code) {
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        background: transparent;
+        --background: transparent;
+    }
+
+    :where(pre code) {
+        white-space: pre;
+        word-break: normal;
+        overflow-wrap: normal;
+    }
+
+    :where(a) {
+        text-decoration: underline;
+        text-decoration-thickness: 1.5px;
+        text-decoration-skip-ink: none;
+        line-height: 1.28;
+        &:hover {
+            background: var(--blue-0);
+        }
+    }
+
+    :where(.katex) {
+        font-size: 1.05em;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    :where(.katex-display) {
+        margin: 12px 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding: 4px 0;
+    }
+
+    :where(h1, h2, h3) {
+        margin: 12px 0 8px;
+        font-size: 1.2em;
+    }
+
+    :where(p + p) {
+        margin-top: 1.5em;
+    }
+
+    :where(hr) {
+        margin: 1em 0;
+    }
+
+    :where(th, td) {
+        padding: 4px 8px;
+        text-align: left;
+        border: 1px solid var(--color-8);
+    }
+
+    :where(table) {
+        margin: 24px 0;
+        border-collapse: collapse;
+        background: var(--background);
+    }
+}
+
+/* Code block container */
+.codeBlock {
+    margin: 12px 0;
+    border: 1px solid var(--color-8);
+    border-radius: var(--radius);
+    background: var(--background);
+    overflow: hidden;
+}
+
+/* Code block header */
+.codeHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 4px 12px;
+    border-bottom: 1px solid var(--color-8);
+    background: color-mix(in srgb, var(--color-9) 35%, transparent);
+    font-size: 12px;
+}
+
+.codeLanguage {
+    color: var(--color-5);
+    font-style: normal;
+}
+
+/* Code body */
+.codeBody {
+    margin: 0;
+    overflow-x: auto;
+    white-space: pre;
+    font-family: var(--font-mono, monospace);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.codeBody pre {
+    margin: 0;
+    padding: 0;
+    background: none !important;
+    overflow: visible;
+    white-space: pre;
+}
+
+.codeBody code {
+    word-break: normal;
+    overflow-wrap: normal;
+    background: transparent;
+}
+
+.codeLine {
+    display: inline;
+}
+
+/* Code block loading state */
+.codeLoading {
+    padding: 24px;
+    display: flex;
+    justify-content: center;
+}
+
+/* Highlighted pre (CodeBlockBody) */
+.highlightedPre {
+    margin: 0;
+    padding: 0;
+    background: var(--highlight-bg, transparent);
+    color: var(--highlight-fg, inherit);
+    overflow: visible;
+    white-space: pre;
+}
+
+/* Button group in header */
+.codeActions {
+    display: flex;
+    gap: 4px;
+}
+

@@ -1,3 +1,4 @@
+import { Button } from "@ioca/react";
 import { usePageContext } from "vike-react/usePageContext";
 import css from "./index.module.css";
 
@@ -11,9 +12,9 @@ export default function Page() {
                     <span>404</span> Not Found
                 </h1>
 
-                <a href="/" className={`${css.back} nav`}>
+                <Button href="/" size="large" className={css.back}>
                     BACK
-                </a>
+                </Button>
             </div>
         );
     }
@@ -24,9 +25,9 @@ export default function Page() {
                 <span>500</span> Internal Error
             </h1>
 
-            <a href="/" className={`${css.back} nav`}>
+            <Button href="/" size="large" className={css.back}>
                 BACK
-            </a>
+            </Button>
         </div>
     );
 }

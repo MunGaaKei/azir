@@ -1,64 +1,73 @@
-import { useAgentModal } from "@/components/agent/modal";
-import { useAgentsStore } from "@/stores/agents";
-import { Button, Dropdown } from "@ioca/react";
-import { Bot, CornerUpLeft, Settings } from "lucide-react";
-import css from "./index.module.css";
+import { useActivityStore } from "@/stores/activity";
+import { Flex, Tag } from "@ioca/react";
+import { useMemo } from "react";
 
-export default function AgentActivity({
-    onSelect,
-    agentId,
-}: {
-    onSelect: (id?: number) => void;
-    agentId: number;
-}) {
-    const { openEdit } = useAgentModal();
-    const agents = useAgentsStore((state) => state.agents);
-    const agent = useAgentsStore((state) =>
-        state.agents.find((item) => item.id === agentId),
+const activityMap = {
+    running: {
+        text: "执行中",
+        class: "bg-blue",
+    },
+    done: {
+        text: "已完成",
+        class: "bg-success-0 success",
+    },
+    error: {
+        text: "失败",
+        class: "bg-error",
+    },
+    stopped: {
+        text: "已中断",
+        class: "",
+    },
+};
+
+function formatDuration(startAt: number, endAt: number) {
+    const seconds = Math.max(0, Math.round((endAt - startAt) / 1000));
+    if (seconds < 60) return `${seconds}s`;
+    const min = Math.floor(seconds / 60);
+    const sec = seconds % 60;
+    return `${min}m ${sec}s`;
+}
+
+export default function AgentActivity({ agentId }: { agentId: number }) {
+    const storeActivities = useActivityStore((state) => state.activities);
+    const activities = useMemo(
+        () =>
+            storeActivities
+                .filter((activity) => activity.agentId === agentId)
+                .sort((a, b) => b.updatedAt - a.updatedAt),
+        [agentId, storeActivities],
     );
 
-    if (!agent) {
-        return;
+    if (!activities.length) {
+        return <div className="my-24 color-5 text-center">暂无活动</div>;
     }
 
     return (
-        <>
-            <header className={css.header}>
-                <Button flat square onClick={() => onSelect(undefined)}>
-                    <CornerUpLeft />
-                </Button>
+        <div className="flex flex-column gap-8">
+            {activities.map((activity) => {
+                const statusInfo = activityMap[activity.status];
 
-                <Dropdown
-                    content={(close) => {
-                        return agents.map((agent) => (
-                            <Dropdown.Item
-                                key={agent.id}
-                                type="option"
-                                active={agent.id === agentId}
-                                onClick={() => {
-                                    onSelect(agent.id);
-                                    close();
-                                }}
+                return (
+                    <section key={activity.id}>
+                        <Flex align="center" gap={8}>
+                            <Tag className={statusInfo.class}>
+                                {statusInfo.text}
+                            </Tag>
+
+                            <i
+                                className="color-5 ml-auto"
+                                style={{ fontSize: 12 }}
                             >
-                                {agent.name}
-                            </Dropdown.Item>
-                        ));
-                    }}
-                >
-                    <Button flat style={{ fontSize: 16 }}>
-                        <Bot size={24} /> {agent.name}
-                    </Button>
-                </Dropdown>
-
-                <Button
-                    flat
-                    square
-                    className="ml-auto"
-                    onClick={() => openEdit(agent)}
-                >
-                    <Settings />
-                </Button>
-            </header>
-        </>
+                                {formatDuration(
+                                    activity.createdAt,
+                                    activity.updatedAt,
+                                )}
+                            </i>
+                        </Flex>
+                    </section>
+                );
+            })}
+        </div>
     );
 }

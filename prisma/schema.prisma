@@ -1,29 +1,56 @@
 generator client {
-    provider = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-    provider = "postgresql"
-}
-
-model Agent {
-    id Int @id @default(autoincrement())
-    name String
-    desc String?
-    model_id Int
-    skills Json @default("[]")
-    permissions Json @default("[]")
-    meta Json @default("{}")
-    createdAt DateTime @default(now())
-
-    model Model @relation(fields: [model_id], references: [id])
+  provider = "postgresql"
 }
 
 model Model {
-    id Int @id @default(autoincrement())
-    name String
-    api_url String
-    api_key String
-    agents Agent[]
-    createdAt DateTime @default(now())
+  id        Int     @id @default(autoincrement())
+  name      String
+  apiUrl    String @map("api_url")
+  apiKey    String @map("api_key")
+  uid       String @default("") // db: uid
+
+  agents    Agent[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("model")
+}
+
+model Agent {
+  id           Int    @id @default(autoincrement())
+  name         String
+  desc         String? // db: desc (same)
+  modelId      Int    @map("model_id")
+
+  skills       Json   @default("[]")
+  permissions  Json   @default("[]")
+  meta         Json   @default("{}")
+  routable     Boolean @default(true)
+  uid          String @default("")
+
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  model        Model   @relation(fields: [modelId], references: [id])
+
+  @@map("agent")
+}
+
+model Skill {
+  id          Int     @id @default(autoincrement())
+  uid         String
+  name        String
+  description String
+
+  repoUrl     String @default("") @map("repo_url")
+  skillMd     String @default("") @map("skill_md")
+
+  rules       Json   @default("[]")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("skill")
 }

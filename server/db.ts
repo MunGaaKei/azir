@@ -1,25 +1,42 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
-import "dotenv/config";
+import dotenv from "dotenv";
+import pg from "pg";
+
+dotenv.config({
+	path: ".env",
+	override: true,
+});
 
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
-    throw new Error("DATABASE_URL is not set");
+	throw new Error("DATABASE_URL is not set");
 }
 
 const globalForPrisma = globalThis as typeof globalThis & {
-    prisma?: PrismaClient;
+	prisma?: PrismaClient;
 };
 
-const adapter = new PrismaPg({ connectionString });
+const isSupabase = connectionString.includes("supabase.co");
+
+const poolUrl = isSupabase
+	? connectionString.replace(/[?&]sslmode=\w+/g, "")
+	: connectionString;
+
+const pool = new pg.Pool({
+	connectionString: poolUrl,
+	...(isSupabase && { ssl: { rejectUnauthorized: false } }),
+});
+
+const adapter = new PrismaPg(pool, isSupabase ? { schema: "azir" } : undefined);
 
 export const db =
-    globalForPrisma.prisma ??
-    new PrismaClient({
-        adapter,
-    });
+	globalForPrisma.prisma ??
+	new PrismaClient({
+		adapter,
+	});
 
 if (process.env.NODE_ENV !== "production") {
-    globalForPrisma.prisma = db;
+	globalForPrisma.prisma = db;
 }
