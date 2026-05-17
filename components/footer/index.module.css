@@ -1,0 +1,29 @@
+.footer {
+    margin-top: auto;
+    width: 600px;
+    max-width: 100%;
+    margin: auto auto 40px;
+    background: var(--background-opacity);
+    backdrop-filter: blur(4px);
+    position: sticky;
+    bottom: 40px;
+    border: 1px solid var(--color-9);
+    border-radius: var(--radius);
+
+    :global(.i-editor-content) {
+        padding: 12px;
+    }
+}
+
+.controls {
+    display: flex;
+    align-items: center;
+    padding: 4px 4px 0;
+}
+
+.upload {
+    :global(.i-upload-card-btn) {
+        border-color: transparent;
+        color: var(--color-main);
+    }
+}
