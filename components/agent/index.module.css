@@ -1,0 +1,29 @@
+.list {
+    margin: 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 120px), 120px));
+    gap: 24px;
+}
+
+.item {
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    cursor: pointer;
+    gap: 4px;
+    b {
+        transition: all 0.12s ease-in-out;
+        color: var(--color-5);
+    }
+    &:hover b {
+        color: unset;
+    }
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 24px;
+}

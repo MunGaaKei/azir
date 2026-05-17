@@ -1,0 +1,29 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+model Agent {
+    id Int @id @default(autoincrement())
+    name String
+    desc String?
+    model_id Int
+    skills Json @default("[]")
+    permissions Json @default("[]")
+    meta Json @default("{}")
+    createdAt DateTime @default(now())
+
+    model Model @relation(fields: [model_id], references: [id])
+}
+
+model Model {
+    id Int @id @default(autoincrement())
+    name String
+    api_url String
+    api_key String
+    agents Agent[]
+    createdAt DateTime @default(now())
+}

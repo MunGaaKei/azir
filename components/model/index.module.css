@@ -1,0 +1,27 @@
+.list {
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+    border-right: 1px solid var(--color-9);
+    min-width: 120px;
+    max-height: 320px;
+    overflow-y: auto;
+    scrollbar-width: none;
+    gap: 2px;
+    -ms-overflow-style: none;
+}
+
+.list::-webkit-scrollbar {
+    display: none;
+}
+
+.header {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--color-9);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    .switch {
+        align-self: center;
+    }
+}
