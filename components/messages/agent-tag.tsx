@@ -1,7 +1,7 @@
 import { useAgentsStore } from "@/stores/agents";
 import { Button } from "@ioca/react";
 import { memo } from "react";
-import { useAgentModal } from "../agent/modal";
+import { useAgentModal } from "../agent/use-agent-modal";
 
 type AgentTagProps = {
     agentId: number;

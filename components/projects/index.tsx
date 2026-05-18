@@ -2,7 +2,7 @@ import Messages, { ScrollContext } from "@/components/messages";
 import { useChatStore } from "@/stores/chat";
 import { Button, Input, Popconfirm } from "@ioca/react";
 import clsx from "clsx";
-import { MessageSquarePlus, Shredder, X } from "lucide-react";
+import { Folder, MessageSquarePlus, Shredder, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import css from "./index.module.css";
 
@@ -82,8 +82,16 @@ export default function Projects() {
                 >
                     <div className={css.header}>
                         <Input
+                            prepend={
+                                <Folder
+                                    size={16}
+                                    className="mr-8"
+                                    fill="var(--color-8)"
+                                />
+                            }
                             className="mr-auto font-bold"
                             border
+                            style={{ borderWidth: 0 }}
                             placeholder="UNTITLED"
                             value={project.name}
                             onChange={(value) =>

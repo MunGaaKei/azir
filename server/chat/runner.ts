@@ -17,7 +17,13 @@ import {
     setUploadedFiles,
     type UploadedFileInfo,
 } from "./tools/file-reader";
-import { createActivityId, sanitizeFilename, toErrorMessage } from "./utils";
+import {
+    createActivityId,
+    extractMessageText,
+    sanitizeFilename,
+    toErrorMessage,
+    truncate,
+} from "./utils";
 
 export type ChatRunnerPayload = {
     prompt?: string;
@@ -340,41 +346,35 @@ async function executePlan(params: {
     return outputs;
 }
 
+const SUMMARY_MAX_ITEMS = 8;
+const SUMMARY_MAX_LENGTH = 2000;
+const SUMMARY_MAX_CHARS_PER_MESSAGE = 400;
+
 async function buildConversationSummary(session: FileSession): Promise<string> {
-    const items = await session.getItems(12);
-    const lines: string[] = [];
+    const items = await session.getItems(SUMMARY_MAX_ITEMS);
+    const parts: string[] = [];
+    let total = 0;
 
     for (const item of items) {
-        const raw = item as { role?: string; content?: unknown };
-        if (raw.role === "user") {
-            const text =
-                typeof raw.content === "string"
-                    ? raw.content
-                    : Array.isArray(raw.content)
-                      ? raw.content
-                            .filter(
-                                (c: { type?: string; text?: string }) =>
-                                    c.type === "input_text",
-                            )
-                            .map((c: { text?: string }) => c.text)
-                            .join(" ")
-                      : "";
-            if (text) lines.push(`用户: ${text.trim()}`);
-        } else if (raw.role === "assistant") {
-            const content = Array.isArray(raw.content)
-                ? raw.content
-                      .filter(
-                          (c: { type?: string; text?: string }) =>
-                              c.type === "output_text",
-                      )
-                      .map((c: { text?: string }) => c.text)
-                      .join("")
-                : "";
-            if (content) lines.push(`助手: ${content.trim()}`);
+        const extracted = extractMessageText(
+            item as { role?: string; content?: unknown },
+        );
+        if (!extracted) continue;
+
+        const truncated = truncate(
+            extracted.text,
+            SUMMARY_MAX_CHARS_PER_MESSAGE,
+        );
+        const line = extracted.prefix + truncated;
+        total += line.length;
+
+        if (total > SUMMARY_MAX_LENGTH && parts.length > 0) {
+            break;
         }
+        parts.push(line);
     }
 
-    return lines.slice(-6).join("\n");
+    return parts.join("\n");
 }
 
 export async function createChatResponse(

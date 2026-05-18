@@ -7,6 +7,7 @@ import { defineConfig } from "vite";
 import vercel from "vite-plugin-vercel/vite";
 
 export default defineConfig({
+    envLoader: { quiet: true },
     plugins: [vike(), react(), vercel()],
     optimizeDeps: {
         include: ["@streamdown/code"],

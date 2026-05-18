@@ -3,13 +3,13 @@ import AgentEditor from "@/components/editor";
 import Projects from "@/components/projects";
 
 export default function Page() {
-	return (
-		<>
-			<Aside />
+    return (
+        <>
+            <Aside />
 
-			<Projects />
+            <Projects />
 
-			<AgentEditor />
-		</>
-	);
+            <AgentEditor />
+        </>
+    );
 }

@@ -29,7 +29,10 @@ const pool = new pg.Pool({
 	...(isSupabase && { ssl: { rejectUnauthorized: false } }),
 });
 
-const adapter = new PrismaPg(pool, isSupabase ? { schema: "azir" } : undefined);
+const adapter = new PrismaPg(pool, {
+	...(isSupabase && { schema: "azir" }),
+	disposeExternalPool: true,
+});
 
 export const db =
 	globalForPrisma.prisma ??

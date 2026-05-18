@@ -2,7 +2,6 @@ import request from "@/server/request";
 import { useAgentsStore } from "@/stores/agents";
 import { useModelsStore } from "@/stores/models";
 import { tryto } from "@/utils";
-import PubSub from "pubsub-js";
 import {
     Button,
     Checkbox,
@@ -11,12 +10,13 @@ import {
     Flex,
     Form,
     Input,
-    Modal,
+    Message,
     Popconfirm,
     Popup,
 } from "@ioca/react";
 import type { Agent } from "@prisma/client";
-import { Bot, CircleQuestionMark, X } from "lucide-react";
+import { Bot, BotOff, CircleQuestionMark, X } from "lucide-react";
+import PubSub from "pubsub-js";
 import { useEffect, useState } from "react";
 import { ModelSelect } from "../model/modal";
 import { SkillModal, SkillSelect } from "../skill/modal";
@@ -135,6 +135,8 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
             throw error;
         }
 
+        Message.info("保存成功 🤞🏼");
+
         const nextAgents = agent
             ? agents.map((item) => (item.id === data.id ? data : item))
             : [...agents, data].sort((a, b) => a.id - b.id);
@@ -195,7 +197,10 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
                     className="mr-auto text-right"
                     style={{ width: "var(--label-width)" }}
                 >
-                    <span className="error">*</span>描述
+                    <span className="error" style={{ fontWeight: "normal" }}>
+                        *
+                    </span>
+                    描述
                 </b>
                 {/* <Button size="small" secondary>
                     智能生成描述
@@ -254,7 +259,6 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
                 <Checkbox
                     type="switch"
                     label="权限"
-                    optionInline={false}
                     options={[
                         {
                             label: "联网搜索",
@@ -304,7 +308,7 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
                         onOk={handleDelete}
                     >
                         <Button secondary className="mr-auto error">
-                            删除
+                            <BotOff /> 删除
                         </Button>
                     </Popconfirm>
                 )}
@@ -321,7 +325,13 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
     );
 }
 
-function AgentModal({ agent, close }: { agent: Agent; close: () => void }) {
+export function AgentModal({
+    agent,
+    close,
+}: {
+    agent: Agent;
+    close: () => void;
+}) {
     const [tab, setTab] = useState<string | undefined>("信息");
 
     return (
@@ -358,7 +368,7 @@ function AgentModal({ agent, close }: { agent: Agent; close: () => void }) {
     );
 }
 
-function AgentCreate({ close }: { close: () => void }) {
+export function AgentCreate({ close }: { close: () => void }) {
     return (
         <div className="pd-16 flex flex-column gap-12">
             <h5 className="text-center flex items-center justify-center gap-4">
@@ -368,26 +378,4 @@ function AgentCreate({ close }: { close: () => void }) {
             <AgentForm close={close} />
         </div>
     );
-}
-
-export function useAgentModal() {
-    const modal = Modal.useModal();
-
-    const open = (agent?: Agent) => {
-        modal.open({
-            customized: true,
-            width: agent ? 600 : 480,
-            backdropClosable: false,
-            children: agent ? (
-                <AgentModal agent={agent} close={modal.close} />
-            ) : (
-                <AgentCreate close={modal.close} />
-            ),
-        });
-    };
-
-    return {
-        openCreate: () => open(),
-        openEdit: (agent: Agent) => open(agent),
-    };
 }
