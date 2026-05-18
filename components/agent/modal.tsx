@@ -1,5 +1,6 @@
 import request from "@/server/request";
 import { useAgentsStore } from "@/stores/agents";
+import { useMcpStore } from "@/stores/mcp";
 import { useModelsStore } from "@/stores/models";
 import { tryto } from "@/utils";
 import {
@@ -19,6 +20,9 @@ import { Bot, BotOff, CircleQuestionMark, X } from "lucide-react";
 import PubSub from "pubsub-js";
 import { useEffect, useState } from "react";
 import { ModelSelect } from "../model/modal";
+import { MCPSection } from "../mcp/mcp-section";
+import { MCPServerModal } from "../mcp/mcp-server-modal";
+import { MCP_SERVERS_UPDATED_TOPIC } from "../mcp/types";
 import { SkillModal, SkillSelect } from "../skill/modal";
 import { SKILLS_UPDATED_TOPIC } from "../skill/utils";
 import { BotAnimate } from "../ui/bot-animate";
@@ -41,6 +45,8 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
     const agents = useAgentsStore((state) => state.agents);
     const setAgents = useAgentsStore((state) => state.setAgents);
     const models = useModelsStore((state) => state.models);
+    const mcpServers = useMcpStore((state) => state.servers);
+    const initMcpServers = useMcpStore((state) => state.initServers);
     const form = Form.useForm();
     const [loading, setLoading] = useState(false);
     const [skillOptions, setSkillOptions] = useState<SkillOption[]>([]);
@@ -68,6 +74,20 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
             PubSub.unsubscribe(token);
         };
     }, []);
+
+    useEffect(() => {
+        initMcpServers().catch(() => undefined);
+
+        const token = PubSub.subscribe(
+            MCP_SERVERS_UPDATED_TOPIC,
+            () => {
+                initMcpServers().catch(() => undefined);
+            },
+        );
+        return () => {
+            PubSub.unsubscribe(token);
+        };
+    }, [initMcpServers]);
 
     const handleDelete = async () => {
         if (!agent) return;
@@ -122,8 +142,17 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
                     routable:
                         Array.isArray(values.routable) &&
                         values.routable.includes("true"),
-                    ...(values["meta.color"]
-                        ? { meta: { color: values["meta.color"] } }
+                    ...(values["meta.color"] || values.mcp_servers?.length
+                        ? {
+                              meta: {
+                                  ...(values["meta.color"]
+                                      ? { color: values["meta.color"] }
+                                      : {}),
+                                  ...(values.mcp_servers?.length
+                                      ? { mcp_servers: values.mcp_servers }
+                                      : {}),
+                              },
+                          }
                         : {}),
                 },
             }),
@@ -202,9 +231,6 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
                     </span>
                     描述
                 </b>
-                {/* <Button size="small" secondary>
-                    智能生成描述
-                </Button> */}
                 <Button
                     size="small"
                     secondary
@@ -254,6 +280,21 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
             </Form.Field>
 
             <SkillModal />
+
+            <Form.Field name="mcp_servers">
+                <MCPSection
+                    multiple
+                    label="MCP"
+                    border
+                    maxDisplay={2}
+                    options={mcpServers.map((s) => ({
+                        label: s.name,
+                        value: s.name,
+                    }))}
+                />
+            </Form.Field>
+
+            <MCPServerModal />
 
             <Form.Field name="permissions">
                 <Checkbox
@@ -339,15 +380,6 @@ export function AgentModal({
             <div className="flex items-center gap-8 px-12 py-8">
                 <Bot size={32} />
                 <b>{agent.name}</b>
-
-                {/* <Tabs
-                    active={tab}
-                    tabs={["信息", "活动"]}
-                    navsJustify="center"
-                    className="ml-32 font-bold"
-                    barClass="bg-8"
-                    onTabChange={setTab}
-                /> */}
 
                 <Button
                     flat

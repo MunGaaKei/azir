@@ -17,9 +17,13 @@ export type AgentFormValues = {
     permissions: AgentPermission[];
     routable: string[];
     "meta.color"?: string;
+    mcp_servers: string[];
 };
 
 export function getAgentFormValues(agent?: Agent): AgentFormValues {
+    const meta = agent?.meta as Record<string, unknown> | undefined;
+    const mcpServers = meta?.mcp_servers;
+
     return {
         name: agent?.name ?? "",
         desc: agent?.desc ?? "",
@@ -37,6 +41,11 @@ export function getAgentFormValues(agent?: Agent): AgentFormValues {
         routable: agent?.routable !== false ? ["true"] : [],
         "meta.color":
             (agent?.meta as { color?: string })?.color ?? "transparent",
+        mcp_servers: Array.isArray(mcpServers)
+            ? mcpServers.filter(
+                  (s): s is string => typeof s === "string",
+              )
+            : [],
     };
 }
 

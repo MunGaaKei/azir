@@ -39,6 +39,18 @@ model Agent {
   @@map("agent")
 }
 
+model Mcp {
+  id          Int      @id @default(autoincrement())
+  uid         String
+  name        String
+  description String   @default("")
+  config      Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("mcp")
+}
+
 model Skill {
   id          Int     @id @default(autoincrement())
   uid         String

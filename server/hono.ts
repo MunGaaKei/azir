@@ -9,6 +9,8 @@ dotenv.config({
 
 import agentApp from "./agent";
 import chatApp from "./chat";
+import mcpApp from "./mcp";
+import mcpRemoteApp from "./mcp/remote";
 import memoriesApp from "./memories";
 import modelApp from "./model";
 import skillsApp from "./skills/remote";
@@ -24,6 +26,8 @@ export function createApp() {
     app.route("/api/chat", chatApp);
     app.route("/api/model", modelApp);
     app.route("/api/uid", uidApp);
+    app.route("/api/mcp", mcpApp);
+    app.route("/api/mcp", mcpRemoteApp);
     app.route("/api/memories", memoriesApp);
     app.route("/api/skills", skillsApp);
     vike(app, []);

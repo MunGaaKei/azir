@@ -1,4 +1,5 @@
 import { tryto } from "@/utils";
+import { MCPServers } from "@openai/agents";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -12,6 +13,8 @@ import { log } from "./logger";
 import { FileSession } from "./memories/file-session";
 import { buildUserPrompt, type ChatUploadFile } from "./prompt";
 import { createAgent, createRunner } from "./provider";
+import { getMcpServerConfigs } from "../mcp/index";
+import { createMcpServerInstance } from "../mcp/utils";
 import {
     cleanupUploadedFiles,
     setUploadedFiles,
@@ -103,10 +106,31 @@ async function runSingleAgent(params: {
     uid: string;
 }): Promise<string> {
     let activityId = createActivityId();
+
+    // Resolve and connect MCP servers
+    const meta = params.agentConfig.meta as Record<string, unknown> | undefined;
+    const mcpNames: string[] = Array.isArray(meta?.mcp_servers)
+        ? (meta.mcp_servers as string[]).filter((s): s is string => typeof s === "string")
+        : [];
+    const mcpConfigs = await getMcpServerConfigs(mcpNames, params.uid);
+    const mcpServers = mcpConfigs.map((config) =>
+        createMcpServerInstance(config),
+    );
+    let mcpManager: Awaited<ReturnType<typeof MCPServers.open>> | null = null;
+
+    if (mcpServers.length > 0) {
+        mcpManager = await MCPServers.open(mcpServers, {
+            dropFailed: true,
+            connectInParallel: true,
+        });
+    }
+
     const agent = await createAgent(
         params.agentConfig,
         { requestId: params.requestId },
         params.candidates,
+        0,
+        mcpManager?.active ?? [],
     );
     const runner = createRunner(params.agentConfig);
 
@@ -246,6 +270,11 @@ async function runSingleAgent(params: {
             `Agent "${currentAgentName}" (id=${currentAgentId}) 运行完成`,
         );
     });
+
+    // Clean up MCP servers regardless of result
+    if (mcpManager) {
+        await mcpManager.close().catch(() => {});
+    }
 
     if (error) {
         void log(

@@ -151,3 +151,12 @@ export type SkillsStore = {
     setSkills: (skills: import("@/components/skill/utils").SkillRecord[]) => void;
     initSkills: () => Promise<void>;
 };
+
+export type MCPStore = {
+    servers: import("@/components/mcp/types").MCPRecord[];
+    initialized: boolean;
+    loading: boolean;
+    setServers: (servers: import("@/components/mcp/types").MCPRecord[]) => void;
+    initServers: () => Promise<void>;
+    refreshServers: () => Promise<void>;
+};

@@ -4,6 +4,7 @@
 import { tryto } from "@/utils";
 import { resolveMentionPayload } from "@/utils/mention";
 import { Agent, OpenAIProvider, Runner } from "@openai/agents";
+import type { MCPServer } from "@openai/agents";
 import OpenAI from "openai";
 import type { AgentWithModel } from "../agent/store";
 import { createAgentSkillTools } from "../skills";
@@ -204,6 +205,7 @@ export async function createAgent(
     options: AgentProviderOptions = {},
     candidates?: AgentWithModel[],
     depth = 0,
+    mcpServers: MCPServer[] = [],
 ) {
     const handoffAgents: Agent[] = [];
     if (depth === 0 && candidates) {
@@ -235,5 +237,6 @@ export async function createAgent(
         model: agentConfig.model.name,
         tools: await resolveTools(agentConfig, options),
         handoffs: handoffAgents,
+        mcpServers,
     });
 }
