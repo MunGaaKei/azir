@@ -1,4 +1,4 @@
-import request from "@/server/request";
+import request, { useAbort } from "@/server/request";
 import { tryto } from "@/utils";
 import { Button, Flex, Form, Input, Popconfirm, Radio } from "@ioca/react";
 import { useEffect, useState } from "react";
@@ -65,6 +65,7 @@ export function SkillFormPanel({
     const [saving, setSaving] = useState(false);
     const [importing, setImporting] = useState(false);
     const [createMode, setCreateMode] = useState<CreateMode>("github");
+    const { signal, cancel } = useAbort();
     const form = Form.useForm();
 
     useEffect(() => {
@@ -96,10 +97,18 @@ export function SkillFormPanel({
             request<SkillRecord>("/api/skills/remote", {
                 method: "POST",
                 body: { name: raw.trim() },
+                signal: signal(),
             }),
         );
         setImporting(false);
-        if (error || !data) throw error;
+        if (error || !data) {
+            if (
+                error instanceof DOMException &&
+                error.name === "AbortError"
+            )
+                return;
+            throw error;
+        }
 
         onSaveSuccess(data.id);
     };
@@ -134,14 +143,23 @@ export function SkillFormPanel({
                     ? request<SkillRecord>(`/api/skills/remote/${skill!.id}`, {
                           method: "PUT",
                           body: payload,
+                          signal: signal(),
                       })
                     : request<SkillRecord>("/api/skills/remote", {
                           method: "POST",
                           body: payload,
+                          signal: signal(),
                       }),
             );
 
-            if (error || !data) throw new Error("保存失败");
+            if (error || !data) {
+                if (
+                    error instanceof DOMException &&
+                    error.name === "AbortError"
+                )
+                    return;
+                throw new Error("保存失败");
+            }
 
             onSaveSuccess(data.id);
         } finally {
@@ -150,6 +168,7 @@ export function SkillFormPanel({
     };
 
     const handleCancel = () => {
+        cancel();
         onClose();
     };
 

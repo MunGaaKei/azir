@@ -1,6 +1,6 @@
 import { useChatStore } from "@/stores/chat";
 import { Button, Flex } from "@ioca/react";
-import { Orbit, Sparkles } from "lucide-react";
+import { Sparkles, TextSearch } from "lucide-react";
 import { useCallback, useState } from "react";
 import { type Suggestion, DEFAULT_SUGGESTIONS } from "./constant";
 
@@ -50,7 +50,7 @@ export function SuggestionBar({ projectId }: SuggestionBarProps) {
                     换一条
                 </Button>
                 <Button secondary className="bg-blue-0" onClick={handleSend}>
-                    {suggestion.buttonLabel} <Orbit size={16} />
+                    {suggestion.buttonLabel} <TextSearch size={16} />
                 </Button>
             </Flex>
         </Flex>

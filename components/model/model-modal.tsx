@@ -1,4 +1,4 @@
-import request from "@/server/request";
+import request, { useAbort } from "@/server/request";
 import { useModelsStore } from "@/stores/models";
 import { tryto } from "@/utils";
 import { Form, Input } from "@ioca/react";
@@ -22,6 +22,7 @@ export function ModelModal() {
     const [visible, setVisible] = useState(false);
     const [id, setId] = useState<number | null>(null);
     const [loading, setLoading] = useState(false);
+    const { signal, cancel } = useAbort();
 
     useEffect(() => {
         initModels().catch(() => undefined);
@@ -47,6 +48,7 @@ export function ModelModal() {
     }, [form, initModels]);
 
     const closeModal = () => {
+        cancel();
         setVisible(false);
         setId(null);
         form.clear();
@@ -56,10 +58,17 @@ export function ModelModal() {
         if (id === null) return;
 
         const { error } = await tryto(
-            request(`/api/model/${id}`, { method: "DELETE" }),
+            request(`/api/model/${id}`, {
+                method: "DELETE",
+                signal: signal(),
+            }),
         );
 
-        if (error) return;
+        if (
+            error &&
+            !(error instanceof DOMException && error.name === "AbortError")
+        )
+            return;
 
         setModels(models.filter((m) => m.id !== id));
         closeModal();
@@ -78,12 +87,18 @@ export function ModelModal() {
             request<Model>(id ? `/api/model/${id}` : "/api/model", {
                 method: id ? "PUT" : "POST",
                 body: values,
+                signal: signal(),
             }),
         );
 
         setLoading(false);
 
         if (error || !data) {
+            if (
+                error instanceof DOMException &&
+                error.name === "AbortError"
+            )
+                return;
             throw error;
         }
 

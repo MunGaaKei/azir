@@ -22,19 +22,15 @@ function getLatestActivity(agent: Agent, activities: AgentActivity[]) {
 }
 
 function getAgentIcon(name: string, used: Set<string>): string {
-    const hasChinese = /[一-鿿]/.test(name);
+    const firstChar = name.trim()[0];
+    const isChinese = (c: string) => /[一-鿿]/.test(c);
 
     let icon: string;
-    if (hasChinese) {
-        const chars = name.match(/[一-鿿]/g) || [];
-        icon = chars[0] || name[0];
+    if (firstChar && isChinese(firstChar)) {
+        icon = firstChar;
     } else {
-        const parts = name.trim().split(/\s+/).filter(Boolean);
-        if (parts.length >= 2) {
-            icon = (parts[0][0] + parts[1][0]).toUpperCase();
-        } else {
-            icon = name.slice(0, 2).toUpperCase();
-        }
+        const leading = name.trim().match(/^[a-zA-Z]+/)?.[0] || name.trim()[0] || "";
+        icon = leading.slice(0, 2).toUpperCase();
     }
 
     if (used.has(icon)) {

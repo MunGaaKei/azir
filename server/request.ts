@@ -1,5 +1,6 @@
 import { tryto } from "@/utils";
 import { Message } from "@ioca/react";
+import { useCallback, useRef } from "react";
 
 type RequestOptions = Omit<RequestInit, "body"> & {
     body?: BodyInit | Record<string, unknown>;
@@ -51,6 +52,28 @@ function getErrorMessage(data: unknown, fallback = "请求失败") {
     return fallback;
 }
 
+/**
+ * 管理请求取消的 hook。
+ * signal() 每次调用返回新 AbortSignal 并取消上一次未完成的请求。
+ * cancel() 取消当前请求。
+ */
+export function useAbort() {
+    const ref = useRef<AbortController | null>(null);
+
+    const signal = useCallback(() => {
+        ref.current?.abort();
+        ref.current = new AbortController();
+        return ref.current.signal;
+    }, []);
+
+    const cancel = useCallback(() => {
+        ref.current?.abort();
+        ref.current = null;
+    }, []);
+
+    return { signal, cancel };
+}
+
 export async function request<T>(
     input: RequestInfo | URL,
     options: RequestOptions = {},
@@ -92,6 +115,11 @@ export async function request<T>(
 
     if (!error) {
         return data as T;
+    }
+
+    // 用户主动取消请求，不弹错误提示
+    if (error instanceof DOMException && error.name === "AbortError") {
+        throw error;
     }
 
     if (error instanceof RequestError) {

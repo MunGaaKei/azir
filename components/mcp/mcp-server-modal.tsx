@@ -1,4 +1,4 @@
-import request from "@/server/request";
+import request, { useAbort } from "@/server/request";
 import { useMcpStore } from "@/stores/mcp";
 import { tryto } from "@/utils";
 import { Button, Flex, Form, Input, Message } from "@ioca/react";
@@ -65,6 +65,7 @@ export function MCPServerModal() {
     const [saving, setSaving] = useState(false);
     const [oauthLoading, setOauthLoading] = useState(false);
     const [configStr, setConfigStr] = useState("");
+    const { signal, cancel } = useAbort();
 
     const handleConfigBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
         const formatted = formatJson(e.target.value);
@@ -156,16 +157,23 @@ export function MCPServerModal() {
                 ? request<MCPRecord>(`/api/mcp/remote/${editingServer.id}`, {
                       method: "PUT",
                       body: { name, description, config },
+                      signal: signal(),
                   })
                 : request<MCPRecord>("/api/mcp/remote", {
                       method: "POST",
                       body: { name, description, config },
+                      signal: signal(),
                   }),
         );
 
         setSaving(false);
 
         if (error || !data) {
+            if (
+                error instanceof DOMException &&
+                error.name === "AbortError"
+            )
+                return;
             if (error) Message.error(String(error));
             return;
         }
@@ -179,15 +187,23 @@ export function MCPServerModal() {
         if (editingId === null) return;
 
         const { error } = await tryto(
-            request(`/api/mcp/remote/${editingId}`, { method: "DELETE" }),
+            request(`/api/mcp/remote/${editingId}`, {
+                method: "DELETE",
+                signal: signal(),
+            }),
         );
-        if (!error) {
-            setServers(servers.filter((s) => s.id !== editingId));
-            setEditingId(null);
-        }
+        if (
+            error &&
+            !(error instanceof DOMException && error.name === "AbortError")
+        )
+            return;
+
+        setServers(servers.filter((s) => s.id !== editingId));
+        setEditingId(null);
     };
 
     const closeModal = () => {
+        cancel();
         setVisible(false);
         setEditingId(null);
     };

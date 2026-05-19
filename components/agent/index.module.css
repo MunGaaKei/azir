@@ -87,6 +87,7 @@
     transition: opacity 0.2s ease;
     overflow: hidden;
     outline: 1px solid var(--color-8);
+    font-weight: 500;
 }
 
 .name {

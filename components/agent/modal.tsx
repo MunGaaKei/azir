@@ -1,4 +1,4 @@
-import request from "@/server/request";
+import request, { useAbort } from "@/server/request";
 import { useAgentsStore } from "@/stores/agents";
 import { useMcpStore } from "@/stores/mcp";
 import { useModelsStore } from "@/stores/models";
@@ -19,10 +19,10 @@ import type { Agent } from "@prisma/client";
 import { Bot, BotOff, CircleQuestionMark, X } from "lucide-react";
 import PubSub from "pubsub-js";
 import { useEffect, useState } from "react";
-import { ModelSelect } from "../model/modal";
 import { MCPSection } from "../mcp/mcp-section";
 import { MCPServerModal } from "../mcp/mcp-server-modal";
 import { MCP_SERVERS_UPDATED_TOPIC } from "../mcp/types";
+import { ModelSelect } from "../model/modal";
 import { SkillModal, SkillSelect } from "../skill/modal";
 import { SKILLS_UPDATED_TOPIC } from "../skill/utils";
 import { BotAnimate } from "../ui/bot-animate";
@@ -48,6 +48,7 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
     const mcpServers = useMcpStore((state) => state.servers);
     const initMcpServers = useMcpStore((state) => state.initServers);
     const form = Form.useForm();
+    const { signal, cancel } = useAbort();
     const [loading, setLoading] = useState(false);
     const [skillOptions, setSkillOptions] = useState<SkillOption[]>([]);
     const agentMentionOptions = createAgentMentionOptions(agents);
@@ -78,12 +79,9 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
     useEffect(() => {
         initMcpServers().catch(() => undefined);
 
-        const token = PubSub.subscribe(
-            MCP_SERVERS_UPDATED_TOPIC,
-            () => {
-                initMcpServers().catch(() => undefined);
-            },
-        );
+        const token = PubSub.subscribe(MCP_SERVERS_UPDATED_TOPIC, () => {
+            initMcpServers().catch(() => undefined);
+        });
         return () => {
             PubSub.unsubscribe(token);
         };
@@ -93,10 +91,17 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
         if (!agent) return;
 
         const { error } = await tryto(
-            request(`/api/agent/${agent.id}`, { method: "DELETE" }),
+            request(`/api/agent/${agent.id}`, {
+                method: "DELETE",
+                signal: signal(),
+            }),
         );
 
-        if (error) return;
+        if (error) {
+            if (error instanceof DOMException && error.name === "AbortError")
+                return;
+            return;
+        }
 
         setAgents(agents.filter((a) => a.id !== agent.id));
         close?.();
@@ -155,12 +160,15 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
                           }
                         : {}),
                 },
+                signal: signal(),
             }),
         );
 
         setLoading(false);
 
         if (error || !data) {
+            if (error instanceof DOMException && error.name === "AbortError")
+                return;
             throw error;
         }
 
@@ -171,6 +179,11 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
             : [...agents, data].sort((a, b) => a.id - b.id);
 
         setAgents(nextAgents);
+        close?.();
+    };
+
+    const handleCancel = () => {
+        cancel();
         close?.();
     };
 
@@ -344,17 +357,17 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
                 {agent && (
                     <Popconfirm
                         icon={null}
-                        content="确定删除 Agent"
+                        content="确定删除"
                         okButtonProps={{ className: "bg-error" }}
                         onOk={handleDelete}
                     >
                         <Button secondary className="mr-auto error">
-                            <BotOff /> 删除
+                            <BotOff size={20} /> 删除
                         </Button>
                     </Popconfirm>
                 )}
                 {close && (
-                    <Button flat onClick={close}>
+                    <Button flat onClick={handleCancel}>
                         取消
                     </Button>
                 )}
