@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../db";
 import { tryto } from "../../utils";
+import { getUid } from "../uid";
 import { createMcpServerInstance } from "./utils";
 import type { MCPServerConfig } from "../../components/mcp/types";
 
@@ -62,7 +63,7 @@ export async function getMcpServerConfigs(
     return mcpNames
         .map((name) => servers.get(name))
         .filter((s): s is CachedServer => !!s)
-        .map((s) => ({ name: s.name, config: s.config }));
+        .map((s) => ({ id: s.id, name: s.name, config: s.config }));
 }
 
 // ---- List tools endpoint (used by UI to preview tools) ----
@@ -71,6 +72,7 @@ api.post("/list-tools", async (c) => {
         name?: string;
         config?: Record<string, unknown>;
     };
+    const uid = getUid(c);
 
     if (!body.config || typeof body.config !== "object") {
         return c.json({ message: "缺少 config" }, 400);
@@ -82,7 +84,7 @@ api.post("/list-tools", async (c) => {
                 name: body.name?.trim() || "temp-listing",
                 config: body.config as Record<string, unknown>,
             },
-            { includeToolFilter: false },
+            { includeToolFilter: false, uid },
         );
 
         await server.connect();

@@ -17,7 +17,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     }, [initAgents, initModels]);
 
     return (
-        <ClientOnly fallback={<Loading absolute />}>
+        <ClientOnly fallback={<Loading absolute text={<h3>AZIR</h3>} />}>
             <div className={css.layout}>{children}</div>
         </ClientOnly>
     );

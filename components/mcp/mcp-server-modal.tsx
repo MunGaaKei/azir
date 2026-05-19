@@ -1,20 +1,17 @@
 import request from "@/server/request";
 import { useMcpStore } from "@/stores/mcp";
 import { tryto } from "@/utils";
-import {
-    Button,
-    Flex,
-    Form,
-    Input,
-    List,
-    Message,
-    Modal,
-    Popconfirm,
-} from "@ioca/react";
-import { Inbox, Plus, Trash2 } from "lucide-react";
+import { Button, Flex, Form, Input, Message } from "@ioca/react";
+import { Cpu } from "lucide-react";
 import PubSub from "pubsub-js";
 import { useEffect, useState } from "react";
-import css from "./index.module.css";
+import {
+    SettingFooter,
+    SettingModal,
+    SettingPanel,
+    SettingSidebar,
+} from "../modalSetting";
+import { OAuthSection } from "./oauth-section";
 import type { MCPRecord } from "./types";
 import { MCP_MODAL_OPEN_TOPIC, MCP_SERVERS_UPDATED_TOPIC } from "./types";
 
@@ -31,6 +28,32 @@ function formatJson(text: string): string {
     }
 }
 
+const OAUTH_TEMPLATE = JSON.stringify(
+    {
+        serverUrl: "https://mcp.notion.com/sse",
+        transport: "sse",
+        authType: "oauth",
+        oauth: {
+            redirectUri:
+                "https://sandsoldier.vercel.app/api/mcp/oauth/callback",
+        },
+        allowedTools: ["tool1", "tool2"],
+    },
+    null,
+    2,
+);
+
+const TOKEN_TEMPLATE = JSON.stringify(
+    {
+        serverUrl: "https://mcp.example.com/sse",
+        transport: "sse",
+        authorization: "Bearer ${YOUR_API_TOKEN}",
+        allowedTools: ["tool1", "tool2"],
+    },
+    null,
+    2,
+);
+
 export function MCPServerModal() {
     const servers = useMcpStore((state) => state.servers);
     const initServers = useMcpStore((state) => state.initServers);
@@ -40,6 +63,35 @@ export function MCPServerModal() {
     const [visible, setVisible] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [saving, setSaving] = useState(false);
+    const [oauthLoading, setOauthLoading] = useState(false);
+    const [configStr, setConfigStr] = useState("");
+
+    const handleConfigBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+        const formatted = formatJson(e.target.value);
+        if (formatted !== e.target.value) {
+            form.set({ config: formatted });
+        }
+        setConfigStr(formatted);
+    };
+
+    const handleConfigChange = (v: string) => setConfigStr(v);
+
+    const fillTemplate = (template: string) => {
+        form.set({ config: template });
+        setConfigStr(template);
+    };
+
+    // Listen for OAuth callback postMessage
+    useEffect(() => {
+        const handler = (event: MessageEvent) => {
+            if (event.data?.type === "oauth_success" && event.data?.mcpId) {
+                refreshServers();
+                Message.success("OAuth 授权完成");
+            }
+        };
+        window.addEventListener("message", handler);
+        return () => window.removeEventListener("message", handler);
+    }, [refreshServers]);
 
     useEffect(() => {
         initServers().catch(() => undefined);
@@ -58,25 +110,18 @@ export function MCPServerModal() {
             : null;
 
     useEffect(() => {
+        const config = editingServer
+            ? JSON.stringify(editingServer.config, null, 2)
+            : "";
+        form.set({ config });
+        setConfigStr(config);
         if (editingServer) {
             form.set({
                 name: editingServer.name,
                 description: editingServer.description,
-                config: JSON.stringify(editingServer.config, null, 2),
             });
         } else {
-            form.set({
-                name: "",
-                description: "",
-                config: JSON.stringify(
-                    {
-                        serverUrl: "",
-                        transport: "streamable-http",
-                    },
-                    null,
-                    2,
-                ),
-            });
+            form.set({ name: "", description: "" });
         }
     }, [editingServer, form]);
 
@@ -130,13 +175,15 @@ export function MCPServerModal() {
         closeModal();
     };
 
-    const handleDelete = async (id: number) => {
+    const handleDelete = async () => {
+        if (editingId === null) return;
+
         const { error } = await tryto(
-            request(`/api/mcp/remote/${id}`, { method: "DELETE" }),
+            request(`/api/mcp/remote/${editingId}`, { method: "DELETE" }),
         );
         if (!error) {
-            setServers(servers.filter((s) => s.id !== id));
-            if (editingId === id) setEditingId(null);
+            setServers(servers.filter((s) => s.id !== editingId));
+            setEditingId(null);
         }
     };
 
@@ -145,130 +192,153 @@ export function MCPServerModal() {
         setEditingId(null);
     };
 
+    const handleOAuthAuthorize = async () => {
+        if (!editingId) {
+            Message.error("请先保存 MCP 服务后再授权");
+            return;
+        }
+
+        const configStr = form.get("config") as string;
+        if (!configStr) {
+            Message.error("请填写配置 JSON");
+            return;
+        }
+
+        let config: Record<string, unknown>;
+        try {
+            config = JSON.parse(configStr);
+        } catch {
+            Message.error("配置 JSON 格式错误");
+            return;
+        }
+
+        if (
+            typeof config.authType !== "string" ||
+            config.authType !== "oauth"
+        ) {
+            Message.error('配置 JSON 需要设置 "authType": "oauth"');
+            return;
+        }
+
+        const redirectUri = window.location.origin + "/api/mcp/oauth/callback";
+
+        setOauthLoading(true);
+
+        const { error, data } = await tryto(
+            request<{ authorizationUrl: string }>("/api/mcp/oauth/authorize", {
+                method: "POST",
+                body: { mcpId: editingId, redirectUri },
+            }),
+        );
+
+        setOauthLoading(false);
+
+        if (error || !data) {
+            if (error) Message.error(String(error));
+            return;
+        }
+
+        const popup = window.open(
+            data.authorizationUrl,
+            "oauth-authorize",
+            "width=600,height=700",
+        );
+        if (!popup) {
+            Message.error("弹出窗口被阻止，请在浏览器中允许弹出窗口");
+        }
+    };
+
     return (
-        <Modal
-            customized
+        <SettingModal
             visible={visible}
-            width={640}
-            backdropClosable={false}
             onClose={closeModal}
+            title="MCP 服务管理"
+            icon={Cpu}
+            width={720}
         >
-            <div className={css.header}>
-                <b className="mr-auto">MCP 服务管理</b>
-            </div>
+            <SettingSidebar
+                items={servers}
+                editingId={editingId}
+                onSelect={(id) => setEditingId(Number(id))}
+                onCreate={() => setEditingId(null)}
+                renderItem={(s) => s.name}
+            />
+            <SettingPanel>
+                <Form
+                    form={form}
+                    rules={{ name: required, config: required }}
+                >
+                    <Form.Field name="name" required>
+                        <Input
+                            label="名称"
+                            border
+                            labelInline
+                            placeholder="notion-server"
+                        />
+                    </Form.Field>
 
-            <Flex>
-                <ul className={css.list}>
-                    {servers.map((s) => (
-                        <List.Item
-                            key={s.id}
-                            type="option"
-                            className={css.item}
-                            active={editingId === s.id}
-                            onClick={() => setEditingId(s.id)}
-                        >
-                            {s.name}
-                        </List.Item>
-                    ))}
+                    <Form.Field name="description">
+                        <Input
+                            label="描述"
+                            border
+                            labelInline
+                            placeholder="MCP 服务描述"
+                        />
+                    </Form.Field>
 
-                    {!servers.length && (
-                        <div className="flex py-20 justify-center">
-                            <Inbox color="var(--color-5)" />
-                        </div>
-                    )}
+                    <Form.Field name="config" required>
+                        <Input.Textarea
+                            label={
+                                <Flex align="center" gap={12}>
+                                    配置 Json
+                                    <Button
+                                        size="small"
+                                        className="ml-auto"
+                                        secondary
+                                        onClick={() =>
+                                            fillTemplate(OAUTH_TEMPLATE)
+                                        }
+                                    >
+                                        OAuth 模版
+                                    </Button>
+                                    <Button
+                                        size="small"
+                                        className="ml-auto"
+                                        secondary
+                                        onClick={() =>
+                                            fillTemplate(TOKEN_TEMPLATE)
+                                        }
+                                    >
+                                        Token 模版
+                                    </Button>
+                                </Flex>
+                            }
+                            border
+                            autoSize={false}
+                            rows={16}
+                            spellCheck={false}
+                            resize={false}
+                            placeholder={OAUTH_TEMPLATE}
+                            onBlur={handleConfigBlur}
+                            onChange={handleConfigChange}
+                        />
+                    </Form.Field>
+                </Form>
 
-                    <Button
-                        secondary
-                        size="small"
-                        className="mx-auto my-12"
-                        onClick={() => setEditingId(null)}
-                    >
-                        <Plus size={16} /> 创建
-                    </Button>
-                </ul>
+                <OAuthSection
+                    configStr={configStr}
+                    oauthLoading={oauthLoading}
+                    onAuthorize={handleOAuthAuthorize}
+                />
 
-                <div className="flex-1 pd-12" style={{ minWidth: 0 }}>
-                    <Form
-                        form={form}
-                        rules={{ name: required, config: required }}
-                        labelInline
-                        labelRight
-                        labelWidth="5em"
-                    >
-                        <Form.Field name="name" required>
-                            <Input
-                                label="名称"
-                                border
-                                placeholder="notion-server"
-                            />
-                        </Form.Field>
-
-                        <Form.Field name="description">
-                            <Input
-                                label="描述"
-                                border
-                                placeholder="MCP 服务描述"
-                            />
-                        </Form.Field>
-
-                        <Form.Field name="config" required>
-                            <Input.Textarea
-                                label="配置 JSON"
-                                border
-                                rows={12}
-                                resize={false}
-                                autoSize
-                                spellCheck={false}
-                                placeholder={JSON.stringify(
-                                    {
-                                        serverUrl: "https://mcp.example.com",
-                                        transport: "streamable-http",
-                                        authorization: "Bearer sk-...",
-                                        headers: { "X-Custom": "value" },
-                                        allowedTools: ["search"],
-                                    },
-                                    null,
-                                    2,
-                                )}
-                                onBlur={(
-                                    e: React.FocusEvent<HTMLTextAreaElement>,
-                                ) => {
-                                    const formatted = formatJson(
-                                        e.target.value,
-                                    );
-                                    if (formatted !== e.target.value) {
-                                        form.set({ config: formatted });
-                                    }
-                                }}
-                            />
-                        </Form.Field>
-                    </Form>
-
-                    <Flex justify="end" className="mt-8" gap={8}>
-                        {editingServer && (
-                            <Popconfirm
-                                icon={null}
-                                content="确定删除"
-                                okButtonProps={{ className: "bg-error" }}
-                                onOk={() => handleDelete(editingServer.id)}
-                            >
-                                <Button secondary className="mr-auto error">
-                                    <Trash2 size={14} /> 删除
-                                </Button>
-                            </Popconfirm>
-                        )}
-                        <Button flat onClick={closeModal}>
-                            取消
-                        </Button>
-                        <Button
-                            loading={saving}
-                            onClick={() => void handleSave()}
-                        >
-                            {editingServer ? "更新" : "创建"}
-                        </Button>
-                    </Flex>
-                </div>
-            </Flex>
-        </Modal>
+                <SettingFooter
+                    editing={editingServer !== null}
+                    onDelete={handleDelete}
+                    onCancel={closeModal}
+                    onSubmit={() => void handleSave()}
+                    submitting={saving}
+                />
+            </SettingPanel>
+        </SettingModal>
     );
 }

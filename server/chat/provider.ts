@@ -53,7 +53,7 @@ function buildInstructions(
         `你是 AI Agent "${agentConfig.name}"。`,
         agentConfig.desc?.trim() ||
             "请根据用户需求提供准确、清晰、可执行的帮助。",
-        "你的最终回答只能包含用户可见的结论和结果，不允许在正文中出现任何内部推理内容。",
+        "你是一个安静执行任务的助手。\n规则：\n- 不要汇报执行过程\n- 不要描述工具调用\n- 不要输出中间步骤\n- 仅输出最终结果",
         buildFileContextPrompt(uploadedFiles),
         options.additionalInstructions?.trim() || "",
     ]

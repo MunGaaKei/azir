@@ -1,13 +1,16 @@
 import request from "@/server/request";
+import { useSkillsStore } from "@/stores/skills";
 import { tryto } from "@/utils";
-import { Button, Flex, List, Modal } from "@ioca/react";
-import { Inbox, Plus } from "lucide-react";
+import { Layers } from "lucide-react";
 import PubSub from "pubsub-js";
 import { useEffect, useState } from "react";
-import css from "./index.module.css";
+import { SettingModal, SettingSidebar } from "../modalSetting";
 import { SkillFormPanel } from "./skill-form-panel";
-import { SKILLS_UPDATED_TOPIC, SKILL_MODAL_OPEN_TOPIC, type SkillRecord } from "./utils";
-import { useSkillsStore } from "@/stores/skills";
+import {
+    SKILLS_UPDATED_TOPIC,
+    SKILL_MODAL_OPEN_TOPIC,
+    type SkillRecord,
+} from "./utils";
 
 export function SkillModal() {
     const skills = useSkillsStore((state) => state.skills);
@@ -31,8 +34,8 @@ export function SkillModal() {
         ? (skills.find((s) => s.id === editingId) ?? null)
         : null;
 
-    const handleSelect = (skill: SkillRecord) => {
-        setEditingId(skill.id);
+    const handleSelect = (id: number | string) => {
+        setEditingId(Number(id));
     };
 
     const handleNew = () => {
@@ -65,54 +68,26 @@ export function SkillModal() {
     };
 
     return (
-        <Modal
-            customized
+        <SettingModal
             visible={visible}
-            width={640}
-            backdropClosable={false}
             onClose={closeModal}
+            title="技能管理"
+            icon={Layers}
+            width={640}
         >
-            <div className={css.header}>
-                <b className="mr-auto">技能管理</b>
-            </div>
-
-            <Flex>
-                <ul className={css.list}>
-                    {skills.map((skill) => (
-                        <List.Item
-                            key={skill.id}
-                            type="option"
-                            className={css.item}
-                            active={editingId === skill.id}
-                            onClick={() => handleSelect(skill)}
-                        >
-                            {skill.name}
-                        </List.Item>
-                    ))}
-
-                    {!skills.length ? (
-                        <div className="flex py-20 justify-center">
-                            <Inbox color="var(--color-5)" />
-                        </div>
-                    ) : null}
-
-                    <Button
-                        secondary
-                        size="small"
-                        className="mx-auto my-12"
-                        onClick={handleNew}
-                    >
-                        <Plus size={16} /> 创建
-                    </Button>
-                </ul>
-
-                <SkillFormPanel
-                    skill={selectedSkill}
-                    onSaveSuccess={handleSaveSuccess}
-                    onDelete={handleDelete}
-                    onClose={closeModal}
-                />
-            </Flex>
-        </Modal>
+            <SettingSidebar
+                items={skills}
+                editingId={editingId}
+                onSelect={handleSelect}
+                onCreate={handleNew}
+                renderItem={(s) => s.name}
+            />
+            <SkillFormPanel
+                skill={selectedSkill}
+                onSaveSuccess={handleSaveSuccess}
+                onDelete={handleDelete}
+                onClose={closeModal}
+            />
+        </SettingModal>
     );
 }

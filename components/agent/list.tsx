@@ -1,11 +1,11 @@
-import { useActivityStore } from "@/stores/activity";
+import { AgentActivity, useActivityStore } from "@/stores/activity";
 import { useAgentsStore } from "@/stores/agents";
-import type { AgentActivity } from "@/stores/type";
-import { Button } from "@ioca/react";
-import type { Agent } from "@prisma/client";
-import { SquarePlus } from "lucide-react";
+import { Badge, Button } from "@ioca/react";
+import { Agent } from "@prisma/client";
+import clsx from "clsx";
+import { PlusSquare } from "lucide-react";
 import { useMemo, useRef } from "react";
-import { BotAnimate, type BotIconHandle } from "../ui/bot-animate";
+import { BotAnimate, BotIconHandle } from "../ui/bot-animate";
 import css from "./index.module.css";
 import { useAgentModal } from "./use-agent-modal";
 
@@ -21,15 +21,37 @@ function getLatestActivity(agent: Agent, activities: AgentActivity[]) {
     return agentActivities.sort((a, b) => b.updatedAt - a.updatedAt)[0];
 }
 
-function AgentListItem({
-    agent,
-    onEdit,
-}: {
-    agent: Agent;
-    onEdit: (agent: Agent) => void;
-}) {
+function getAgentIcon(name: string, used: Set<string>): string {
+    const hasChinese = /[一-鿿]/.test(name);
+
+    let icon: string;
+    if (hasChinese) {
+        const chars = name.match(/[一-鿿]/g) || [];
+        icon = chars[0] || name[0];
+    } else {
+        const parts = name.trim().split(/\s+/).filter(Boolean);
+        if (parts.length >= 2) {
+            icon = (parts[0][0] + parts[1][0]).toUpperCase();
+        } else {
+            icon = name.slice(0, 2).toUpperCase();
+        }
+    }
+
+    if (used.has(icon)) {
+        for (let i = icon.length; i < name.length; i++) {
+            const c = (icon + name[i]).toUpperCase().replace(/\s/g, "");
+            if (!used.has(c)) return c;
+        }
+    }
+
+    return icon;
+}
+
+function AgentItem({ agent, icon }: { agent: Agent; icon: string }) {
     const botRef = useRef<BotIconHandle>(null);
     const fill = (agent.meta as any)?.color ?? "transparent";
+    const { openEdit } = useAgentModal();
+
     const storeActivities = useActivityStore((state) => state.activities);
     const latestActivity = useMemo(
         () => getLatestActivity(agent, storeActivities),
@@ -37,41 +59,70 @@ function AgentListItem({
     );
 
     return (
-        <a
+        <div
             className={css.item}
+            onClick={() => openEdit(agent)}
             onMouseEnter={() => botRef.current?.startAnimation()}
             onMouseLeave={() => botRef.current?.stopAnimation()}
-            onClick={() => onEdit(agent)}
         >
-            <BotAnimate ref={botRef} size={32} fill={fill} />
-            <span className={css.name}>{agent.name}</span>
+            <Badge
+                className={css.badge}
+                content={latestActivity?.status}
+                dot
+                dotSize={12}
+                disabled={
+                    !latestActivity ||
+                    !["running", "error"].includes(latestActivity?.status)
+                }
+                contentClass={clsx(
+                    latestActivity
+                        ? (statusToClass[latestActivity.status] ?? "")
+                        : "",
+                    "mt-4",
+                )}
+            >
+                <BotAnimate ref={botRef} size={32} fill={fill} />
 
-            <span
-                className={`${css.status} ${latestActivity ? (statusToClass[latestActivity.status] ?? "") : ""}`}
-            />
-        </a>
+                <span className={css.icon}>{icon}</span>
+            </Badge>
+
+            <span className={css.name}>{agent.name}</span>
+        </div>
     );
 }
 
-export default function AgentList() {
+export default function AgentMenu() {
     const agents = useAgentsStore((state) => state.agents);
-    const { openCreate, openEdit } = useAgentModal();
+    const { openCreate } = useAgentModal();
+
+    const agentIcons = useMemo(() => {
+        const used = new Set<string>();
+        const map = new Map<number, string>();
+        for (const agent of agents) {
+            const icon = getAgentIcon(agent.name, used);
+            used.add(icon);
+            map.set(agent.id, icon);
+        }
+        return map;
+    }, [agents]);
 
     return (
-        <div className={css.list}>
-            {agents.map((agent) => (
-                <AgentListItem key={agent.id} agent={agent} onEdit={openEdit} />
-            ))}
+        <>
+            <Button flat square onClick={() => openCreate()}>
+                <PlusSquare size={32} />
+            </Button>
 
-            {agents.length === 0 && (
-                <div className="color-5 mt-24">还没有任何智能体</div>
-            )}
-
-            <div className={css.add}>
-                <Button flat onClick={openCreate}>
-                    <SquarePlus size={24} /> 创建
-                </Button>
+            <div className={css.list}>
+                <div className={css.listInner}>
+                    {agents.map((agent) => (
+                        <AgentItem
+                            key={agent.id}
+                            agent={agent}
+                            icon={agentIcons.get(agent.id) ?? ""}
+                        />
+                    ))}
+                </div>
             </div>
-        </div>
+        </>
     );
 }

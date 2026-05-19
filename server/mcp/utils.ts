@@ -5,6 +5,7 @@ import {
 } from "@openai/agents";
 import type { MCPServer } from "@openai/agents";
 import type { MCPServerConfig } from "../../components/mcp/types";
+import { AzirOAuthClientProvider } from "./oauth";
 
 function readString(
     config: Record<string, unknown>,
@@ -43,7 +44,7 @@ function readRecord(
 
 export function createMcpServerInstance(
     cfg: MCPServerConfig,
-    options?: { includeToolFilter?: boolean },
+    options?: { includeToolFilter?: boolean; uid?: string },
 ): MCPServer {
     const config = cfg.config;
     const url = readString(config, "serverUrl", "url");
@@ -56,11 +57,49 @@ export function createMcpServerInstance(
         );
     }
 
-    const authorization = readString(config, "authorization");
-    const headers = readRecord(config, "headers");
     const allowedTools = readStringArray(config, "allowedTools");
 
-    // Merge authorization into headers (add Bearer prefix if missing)
+    const toolFilter =
+        options?.includeToolFilter !== false
+            ? createMCPToolStaticFilter({
+                  allowed: allowedTools,
+              })
+            : undefined;
+
+    // Check for OAuth auth type
+    const authType = readString(config, "authType");
+    let authProvider: AzirOAuthClientProvider | undefined;
+    if (authType === "oauth" && options?.uid && cfg.id !== undefined) {
+        authProvider = new AzirOAuthClientProvider(
+            config,
+            Number(cfg.id),
+            options.uid,
+        );
+    }
+
+    if (authProvider) {
+        // OAuth flow: authProvider handles auth, no requestInit needed
+        if (transport === "sse") {
+            return new MCPServerSSE({
+                name: cfg.name,
+                url,
+                toolFilter,
+                authProvider,
+            });
+        }
+
+        return new MCPServerStreamableHttp({
+            name: cfg.name,
+            url,
+            toolFilter,
+            authProvider,
+        });
+    }
+
+    // Bearer token flow
+    const authorization = readString(config, "authorization");
+    const headers = readRecord(config, "headers");
+
     const mergedHeaders: Record<string, string> = { ...headers };
     if (authorization) {
         mergedHeaders["Authorization"] = authorization.startsWith("Bearer ")
@@ -71,13 +110,6 @@ export function createMcpServerInstance(
     const requestInit =
         Object.keys(mergedHeaders).length > 0
             ? { headers: mergedHeaders }
-            : undefined;
-
-    const toolFilter =
-        options?.includeToolFilter !== false
-            ? createMCPToolStaticFilter({
-                  allowed: allowedTools,
-              })
             : undefined;
 
     if (transport === "sse") {

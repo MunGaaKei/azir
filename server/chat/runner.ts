@@ -114,7 +114,7 @@ async function runSingleAgent(params: {
         : [];
     const mcpConfigs = await getMcpServerConfigs(mcpNames, params.uid);
     const mcpServers = mcpConfigs.map((config) =>
-        createMcpServerInstance(config),
+        createMcpServerInstance(config, { uid: params.uid }),
     );
     let mcpManager: Awaited<ReturnType<typeof MCPServers.open>> | null = null;
 
@@ -421,14 +421,26 @@ export async function createChatResponse(
     const files = Array.isArray(payload.files) ? payload.files : [];
     const encoder = new TextEncoder();
 
+    let controllerClosed = false;
+
     return new Response(
         new ReadableStream({
+            cancel() {
+                controllerClosed = true;
+            },
             start(controller) {
-                const writer = {
-                    write: (chunk: Uint8Array) => {
+                const safeWrite = (chunk: Uint8Array) => {
+                    if (controllerClosed) return Promise.resolve();
+                    try {
                         controller.enqueue(chunk);
-                        return Promise.resolve();
-                    },
+                    } catch {
+                        controllerClosed = true;
+                    }
+                    return Promise.resolve();
+                };
+
+                const writer = {
+                    write: safeWrite,
                 } satisfies Pick<StreamWriter, "write">;
 
                 void (async () => {
@@ -494,7 +506,10 @@ export async function createChatResponse(
                     }
 
                     await cleanupUploadedFiles(requestId);
-                    controller.close();
+                    if (!controllerClosed) {
+                        controllerClosed = true;
+                        controller.close();
+                    }
                 })();
             },
         }),
