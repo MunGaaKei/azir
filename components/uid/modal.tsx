@@ -75,17 +75,28 @@ function UidModal({ close }: { close: () => void }) {
                 </Button>
             </Flex>
 
-            <Flex gap={4}>
-                <Input
-                    type="password"
-                    border
-                    placeholder="UID"
-                    value={inputValue}
-                    onChange={(value) => setInputValue(String(value ?? ""))}
-                />
-                <Button loading={loading} onClick={handleUpdate}>
-                    修改
-                </Button>
+            <Input
+                type="password"
+                border
+                value={inputValue}
+                onChange={(value) => setInputValue(String(value ?? ""))}
+                append={
+                    <Button loading={loading} onClick={handleUpdate}>
+                        修改
+                    </Button>
+                }
+            />
+
+            <Flex gap={4} className="mt-8" align="center">
+                <b>Github:</b>
+                <a
+                    href="https://github.com/MunGaaKei/azir"
+                    target="_blank"
+                    style={{ fontSize: 14 }}
+                >
+                    https://github.com/MunGaaKei/azir
+                </a>
+                <i className="color-5 ml-auto">#iannism :)</i>
             </Flex>
         </div>
     );

@@ -29,8 +29,8 @@ export function Aside() {
     }
 
     return (
-        <aside className="flex pd-12 flex-column gap-4">
-            <a href="/" className="flex mb-12">
+        <aside className="flex pd-12 flex-column gap-12">
+            <a href="/" className="flex mb-4">
                 <img src="/logo.png" alt="logo" width={28} height={28} />
             </a>
 
