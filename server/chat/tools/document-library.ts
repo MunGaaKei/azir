@@ -8,15 +8,13 @@ import {
     unlink,
     writeFile,
 } from "node:fs/promises";
-import { createWriteStream, existsSync } from "node:fs";
-import { createRequire } from "node:module";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { z } from "zod";
 import { MarkItDown } from "markitdown-ts";
-
-const cjsRequire = createRequire(import.meta.url);
-const PDFDocument = cjsRequire("pdfkit") as typeof import("pdfkit");
+import { PDFDocument, StandardFonts, rgb, PageSizes } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
 
 export type DocFileInfo = {
     filename: string;
@@ -83,7 +81,8 @@ export async function listDocuments(uid: string): Promise<DocFileInfo[]> {
 
     files.sort(
         (a, b) =>
-            new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime(),
+            new Date(b.modifiedAt).getTime() -
+            new Date(a.modifiedAt).getTime(),
     );
     return files;
 }
@@ -113,7 +112,6 @@ export async function readDocument(
         return data ?? null;
     }
 
-    // Use markitdown-ts for PDF, Office docs, etc.
     const { data: mdResult } = await tryto(async () => {
         const markitdown = new MarkItDown();
         const result = await markitdown.convert(filepath);
@@ -155,45 +153,19 @@ export async function deleteDocumentFile(
 
 type CJKFont = {
     path: string;
-    regular: string;
-    bold: string;
 };
 
 function findCJKFont(): CJKFont | null {
-    const candidates: CJKFont[] = [
-        // macOS
-        {
-            path: "/System/Library/Fonts/Hiragino Sans GB.ttc",
-            regular: "HiraginoSansGB-W3",
-            bold: "HiraginoSansGB-W6",
-        },
-        {
-            path: "/System/Library/Fonts/AppleSDGothicNeo.ttc",
-            regular: "AppleSDGothicNeo-Regular",
-            bold: "AppleSDGothicNeo-Bold",
-        },
-        {
-            path: "/System/Library/Fonts/STHeiti Medium.ttc",
-            regular: "STHeitiSC-Medium",
-            bold: "STHeitiSC-Medium",
-        },
-        // Linux
-        {
-            path: "/usr/share/fonts/truetype/wqy/wqy-microhei.ttf",
-            regular: "WenQuanYi Micro Hei",
-            bold: "WenQuanYi Micro Hei",
-        },
-        {
-            path: "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-            regular: "NotoSansCJK-Regular",
-            bold: "NotoSansCJK-Bold",
-        },
+    const candidates = [
+        "/System/Library/Fonts/Hiragino Sans GB.ttc",
+        "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+        "/System/Library/Fonts/STHeiti Medium.ttc",
+        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
     ];
 
-    for (const font of candidates) {
-        if (existsSync(font.path)) {
-            return font;
-        }
+    for (const fp of candidates) {
+        if (existsSync(fp)) return { path: fp };
     }
     return null;
 }
@@ -217,99 +189,128 @@ export async function generatePdfDocument(
         return { success: false, error: "无效的文件名" };
     }
 
-    const { data, error } = await tryto(
-        () =>
-            new Promise<{ success: boolean; filepath: string }>(
-                (resolve, reject) => {
-                    const doc = new PDFDocument({
-                        info: {
-                            Title: filename,
-                            Creator: "Azir Document Library",
-                        },
+    const { data, error } = await tryto(async () => {
+        const doc = await PDFDocument.create();
+        doc.registerFontkit(fontkit);
+
+        const helvetica = await doc.embedFont(StandardFonts.Helvetica);
+        const helveticaBold = await doc.embedFont(
+            StandardFonts.HelveticaBold,
+        );
+        const courier = await doc.embedFont(StandardFonts.Courier);
+
+        const cjkFontPath = findCJKFont();
+        let bodyFont = helvetica;
+        let boldFont = helveticaBold;
+        if (cjkFontPath) {
+            try {
+                const fontBytes = await readFile(cjkFontPath.path);
+                bodyFont = await doc.embedFont(fontBytes, {
+                    subset: true,
+                });
+                boldFont = bodyFont;
+            } catch {
+                // Fall back to standard fonts
+            }
+        }
+
+        const BODY_SIZE = 12;
+        const MARGIN = 56;
+        const [PAGE_W, PAGE_H] = PageSizes.A4;
+
+        let page = doc.addPage(PageSizes.A4);
+        let cursorY = PAGE_H - MARGIN;
+
+        function drawLine(
+            text: string,
+            font: typeof helvetica,
+            size: number,
+            opts?: { indent?: number; color?: [number, number, number] },
+        ) {
+            const indent = opts?.indent ?? 0;
+            const maxWidth = PAGE_W - MARGIN * 2 - indent;
+            const color = opts?.color ? rgb(...opts.color) : rgb(0, 0, 0);
+
+            let line = "";
+            for (const ch of text) {
+                const test = line + ch;
+                if (font.widthOfTextAtSize(test, size) > maxWidth && line) {
+                    page.drawText(line, {
+                        x: MARGIN + indent,
+                        y: cursorY - size,
+                        size,
+                        font,
+                        color,
                     });
-                    const stream = createWriteStream(filepath);
-
-                    stream.on("finish", () =>
-                        resolve({ success: true, filepath }),
-                    );
-                    stream.on("error", reject);
-
-                    doc.pipe(stream);
-
-                    const cjkFont = findCJKFont();
-                    let hasCJK = false;
-                    if (cjkFont) {
-                        try {
-                            doc.registerFont("CJK", cjkFont.path, cjkFont.regular);
-                            doc.registerFont(
-                                "CJK-Bold",
-                                cjkFont.path,
-                                cjkFont.bold,
-                            );
-                            hasCJK = true;
-                        } catch {
-                            // Fall back to Helvetica
-                        }
+                    cursorY -= size * 1.5;
+                    if (cursorY < MARGIN) {
+                        page = doc.addPage(PageSizes.A4);
+                        cursorY = PAGE_H - MARGIN;
                     }
+                    line = ch;
+                } else {
+                    line = test;
+                }
+            }
+            if (line) {
+                page.drawText(line, {
+                    x: MARGIN + indent,
+                    y: cursorY - size,
+                    size,
+                    font,
+                    color,
+                });
+                cursorY -= size * 1.5;
+            }
+        }
 
-                    const BODY = hasCJK ? "CJK" : "Helvetica";
-                    const BOLD = hasCJK ? "CJK-Bold" : "Helvetica-Bold";
-                    const BODY_SIZE = 12;
+        let inCodeBlock = false;
+        for (const line of markdownContent.split("\n")) {
+            if (cursorY < MARGIN + 20) {
+                page = doc.addPage(PageSizes.A4);
+                cursorY = PAGE_H - MARGIN;
+            }
 
-                    let inCodeBlock = false;
-                    const lines = markdownContent.split("\n");
-                    for (const line of lines) {
-                        if (line.startsWith("```")) {
-                            inCodeBlock = !inCodeBlock;
-                            if (inCodeBlock) {
-                                doc.font("Courier")
-                                    .fillColor("#333")
-                                    .fontSize(BODY_SIZE);
-                            } else {
-                                doc.fillColor("#000")
-                                    .font(BODY)
-                                    .fontSize(BODY_SIZE);
-                            }
-                            continue;
-                        }
+            if (line.startsWith("```")) {
+                inCodeBlock = !inCodeBlock;
+                continue;
+            }
 
-                        if (inCodeBlock) {
-                            doc.font("Courier").fontSize(BODY_SIZE - 1);
-                            doc.text(line, { paragraphGap: 1 });
-                            continue;
-                        }
+            if (inCodeBlock) {
+                page.drawText(line, {
+                    x: MARGIN + 12,
+                    y: cursorY - (BODY_SIZE - 1),
+                    size: BODY_SIZE - 1,
+                    font: courier,
+                    color: rgb(0.2, 0.2, 0.2),
+                });
+                cursorY -= (BODY_SIZE - 1) * 1.4;
+                continue;
+            }
 
-                        if (line.startsWith("# ")) {
-                            doc.fontSize(24).font(BOLD);
-                            doc.text(line.slice(2).trim(), { paragraphGap: 8 });
-                            doc.fontSize(BODY_SIZE).font(BODY);
-                        } else if (line.startsWith("## ")) {
-                            doc.fontSize(20).font(BOLD);
-                            doc.text(line.slice(3).trim(), { paragraphGap: 6 });
-                            doc.fontSize(BODY_SIZE).font(BODY);
-                        } else if (line.startsWith("### ")) {
-                            doc.fontSize(16).font(BOLD);
-                            doc.text(line.slice(4).trim(), { paragraphGap: 4 });
-                            doc.fontSize(BODY_SIZE).font(BODY);
-                        } else if (line.startsWith("- ") || line.startsWith("* ")) {
-                            doc.text(`  • ${line.slice(2).trim()}`, {
-                                indent: 12,
-                                paragraphGap: 2,
-                            });
-                        } else if (line.trim()) {
-                            doc.text(line.trim(), {
-                                align: "justify",
-                                paragraphGap: 4,
-                            });
-                        } else {
-                            doc.moveDown(0.5);
-                        }
-                    }
+            if (line.startsWith("# ")) {
+                drawLine(line.slice(2).trim(), boldFont, 24);
+                cursorY -= 2;
+            } else if (line.startsWith("## ")) {
+                drawLine(line.slice(3).trim(), boldFont, 20);
+            } else if (line.startsWith("### ")) {
+                drawLine(line.slice(4).trim(), boldFont, 16);
+            } else if (line.startsWith("- ") || line.startsWith("* ")) {
+                drawLine(`• ${line.slice(2).trim()}`, bodyFont, BODY_SIZE, {
+                    indent: 12,
+                });
+            } else if (line.trim()) {
+                drawLine(line.trim(), bodyFont, BODY_SIZE);
+            } else {
+                cursorY -= BODY_SIZE * 0.6;
+            }
+        }
 
-                    doc.end();
-                },
-            ),
-    );
+        const pdfBytes = await doc.save({ useObjectStreams: false });
+        await writeFile(filepath, Buffer.from(pdfBytes));
+
+        return { success: true, filepath };
+    });
 
     if (error) {
         return {
@@ -396,9 +397,7 @@ export function createSaveDocumentTool(uid: string) {
                     .trim()
                     .min(1)
                     .describe("文件名（包含扩展名），如 notes.md"),
-                content: z
-                    .string()
-                    .describe("文件内容（文本格式）"),
+                content: z.string().describe("文件内容（文本格式）"),
             })
             .strict(),
         async execute({ filename, content }) {
@@ -422,14 +421,22 @@ export function createGeneratePdfTool(uid: string) {
                     .string()
                     .trim()
                     .min(1)
-                    .describe("PDF 文件名，必须以 .pdf 结尾，如 report.pdf"),
+                    .describe(
+                        "PDF 文件名，必须以 .pdf 结尾，如 report.pdf",
+                    ),
                 content: z
                     .string()
-                    .describe("文件内容（Markdown 格式），支持标题、列表、代码块等 Markdown 语法"),
+                    .describe(
+                        "文件内容（Markdown 格式），支持标题、列表、代码块等 Markdown 语法",
+                    ),
             })
             .strict(),
         async execute({ filename, content }) {
-            const result = await generatePdfDocument(uid, filename, content);
+            const result = await generatePdfDocument(
+                uid,
+                filename,
+                content,
+            );
             if (result.success) {
                 return `PDF 文件 "${filename}" 已成功生成并保存到文档库。`;
             }
