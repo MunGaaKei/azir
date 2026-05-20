@@ -9,11 +9,14 @@ import {
     writeFile,
 } from "node:fs/promises";
 import { createWriteStream, existsSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { z } from "zod";
 import { MarkItDown } from "markitdown-ts";
-import PDFDocument from "pdfkit";
+
+const cjsRequire = createRequire(import.meta.url);
+const PDFDocument = cjsRequire("pdfkit") as typeof import("pdfkit");
 
 export type DocFileInfo = {
     filename: string;
