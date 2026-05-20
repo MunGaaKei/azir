@@ -1,16 +1,12 @@
 import request from "@/server/request";
 import { useSkillsStore } from "@/stores/skills";
 import { tryto } from "@/utils";
-import { Layers } from "lucide-react";
+import { Pickaxe } from "lucide-react";
 import PubSub from "pubsub-js";
 import { useEffect, useState } from "react";
 import { SettingModal, SettingSidebar } from "../modalSetting";
 import { SkillFormPanel } from "./skill-form-panel";
-import {
-    SKILLS_UPDATED_TOPIC,
-    SKILL_MODAL_OPEN_TOPIC,
-    type SkillRecord,
-} from "./utils";
+import { SKILLS_UPDATED_TOPIC, SKILL_MODAL_OPEN_TOPIC } from "./utils";
 
 export function SkillModal() {
     const skills = useSkillsStore((state) => state.skills);
@@ -72,7 +68,7 @@ export function SkillModal() {
             visible={visible}
             onClose={closeModal}
             title="技能管理"
-            icon={Layers}
+            icon={Pickaxe}
             width={640}
         >
             <SettingSidebar

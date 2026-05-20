@@ -26,6 +26,7 @@ import { ModelSelect } from "../model/modal";
 import { SkillModal, SkillSelect } from "../skill/modal";
 import { SKILLS_UPDATED_TOPIC } from "../skill/utils";
 import { BotAnimate } from "../ui/bot-animate";
+import { ScheduleSection } from "../schedule/schedule-section";
 import AgentActivity from "./activity";
 import {
     type AgentPermission,
@@ -52,9 +53,23 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
     const [loading, setLoading] = useState(false);
     const [skillOptions, setSkillOptions] = useState<SkillOption[]>([]);
     const agentMentionOptions = createAgentMentionOptions(agents);
+    const [scheduleEnabled, setScheduleEnabled] = useState(false);
 
     useEffect(() => {
-        form.set(getAgentFormValues(agent));
+        const values = getAgentFormValues(agent);
+        form.set(values);
+
+        const meta = agent?.meta as Record<string, unknown> | undefined;
+        const s = meta?.schedule as
+            | { enabled?: boolean; time?: string; days?: string[]; prompt?: string }
+            | undefined;
+
+        setScheduleEnabled(s?.enabled ?? false);
+        form.set({
+            "schedule.time": s?.time ?? "09:00",
+            "schedule.days": Array.isArray(s?.days) ? s.days : [],
+            "schedule.prompt": s?.prompt ?? "",
+        });
     }, [agent, form]);
 
     useEffect(() => {
@@ -125,6 +140,8 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
 
         setLoading(true);
 
+        const hadSchedule = !!(agent?.meta as Record<string, unknown> | undefined)?.schedule;
+
         const { error, data } = await tryto(
             request<Agent>(agent ? `/api/agent/${agent.id}` : "/api/agent", {
                 method: agent ? "PUT" : "POST",
@@ -147,7 +164,7 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
                     routable:
                         Array.isArray(values.routable) &&
                         values.routable.includes("true"),
-                    ...(values["meta.color"] || values.mcp_servers?.length
+                    ...(values["meta.color"] || values.mcp_servers?.length || scheduleEnabled || hadSchedule
                         ? {
                               meta: {
                                   ...(values["meta.color"]
@@ -155,6 +172,20 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
                                       : {}),
                                   ...(values.mcp_servers?.length
                                       ? { mcp_servers: values.mcp_servers }
+                                      : {}),
+                                  ...(scheduleEnabled || hadSchedule
+                                      ? {
+                                            schedule: {
+                                                enabled: scheduleEnabled,
+                                                ...(scheduleEnabled
+                                                    ? {
+                                                          time: (values.schedule as { time?: string })?.time || "09:00",
+                                                          days: (values.schedule as { days?: string[] })?.days || [],
+                                                          prompt: ((values.schedule as { prompt?: string })?.prompt || "").trim(),
+                                                      }
+                                                    : {}),
+                                            },
+                                        }
                                       : {}),
                               },
                           }
@@ -321,6 +352,11 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
                     ]}
                 />
             </Form.Field>
+
+            <ScheduleSection
+                enabled={scheduleEnabled}
+                onToggle={setScheduleEnabled}
+            />
 
             <Form.Field name="routable">
                 <Checkbox

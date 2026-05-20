@@ -125,6 +125,9 @@ export default function AgentEditor() {
                     limit={MAX_FILES}
                     onFilesChange={handleFilesChange}
                 />
+
+                {/* <ControlSetting /> */}
+
                 <Button flat className="ml-auto" onClick={submit}>
                     发送
                 </Button>

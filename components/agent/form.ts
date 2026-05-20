@@ -20,6 +20,22 @@ export type AgentFormValues = {
     mcp_servers: string[];
 };
 
+export const WEEK_DAY_OPTIONS = [
+    { label: "周一", value: "1" },
+    { label: "周二", value: "2" },
+    { label: "周三", value: "3" },
+    { label: "周四", value: "4" },
+    { label: "周五", value: "5" },
+    { label: "周六", value: "6" },
+    { label: "周日", value: "7" },
+];
+
+export function createScheduleCron(schedule: { time: string; days: string[] }): string {
+    const [hour, minute] = schedule.time.split(":").map(Number);
+    const dayPart = schedule.days.length ? schedule.days.join(",") : "*";
+    return `${minute} ${hour} * * ${dayPart}`;
+}
+
 export function getAgentFormValues(agent?: Agent): AgentFormValues {
     const meta = agent?.meta as Record<string, unknown> | undefined;
     const mcpServers = meta?.mcp_servers;

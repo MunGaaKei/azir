@@ -6,6 +6,7 @@ export function MCPSection(props: ISelect) {
     return (
         <Flex gap={8}>
             <Select {...props} />
+
             <ManageMCPButton />
         </Flex>
     );

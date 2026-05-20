@@ -1,6 +1,6 @@
 import { Button } from "@ioca/react";
 import PubSub from "pubsub-js";
-import { LayersIcon } from "../ui/layer-animate";
+import { PickaxeAnimate } from "../ui/pickaxe-animate";
 import { SKILL_MODAL_OPEN_TOPIC } from "./utils";
 
 export function openSkillModal() {
@@ -10,7 +10,7 @@ export function openSkillModal() {
 export function ManageSkillButton() {
     return (
         <Button secondary square onClick={() => openSkillModal()}>
-            <LayersIcon size={20} />
+            <PickaxeAnimate size={18} />
         </Button>
     );
 }

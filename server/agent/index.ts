@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { getUid } from "../uid";
+import { schedulerService } from "../schedule";
 import { createAgent, listAgents, updateAgent } from "./store";
 import { listAvailableSkills } from "../skills";
 
@@ -93,6 +94,8 @@ api.post("/", async (c) => {
         uid,
     });
 
+    await schedulerService.scheduleAgent(agent.id);
+
     return c.json(agent);
 });
 
@@ -126,6 +129,8 @@ api.put("/:id", async (c) => {
         meta,
     });
 
+    await schedulerService.scheduleAgent(agent.id);
+
     return c.json(agent);
 });
 
@@ -143,6 +148,7 @@ api.delete("/:id", async (c) => {
         return c.json({ message: "Agent not found" }, 404);
     }
 
+    schedulerService.unscheduleAgent(id);
     await deleteAgent(id);
     return c.json({ message: "ok" });
 });
