@@ -12,7 +12,6 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { z } from "zod";
-import { MarkItDown } from "markitdown-ts";
 import { PDFDocument, StandardFonts, rgb, PageSizes } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 
@@ -87,6 +86,23 @@ export async function listDocuments(uid: string): Promise<DocFileInfo[]> {
     return files;
 }
 
+async function extractPdfText(filepath: string): Promise<string | null> {
+    const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    const data = await readFile(filepath);
+    const doc = await getDocument({ data: new Uint8Array(data) }).promise;
+
+    const pages: string[] = [];
+    for (let i = 1; i <= Math.min(doc.numPages, 50); i++) {
+        const page = await doc.getPage(i);
+        const content = await page.getTextContent();
+        const text = content.items.map((item) => (item as { str: string }).str).join(" ");
+        pages.push(text);
+    }
+
+    await doc.destroy();
+    return pages.join("\n\n");
+}
+
 export async function readDocument(
     uid: string,
     filename: string,
@@ -112,13 +128,29 @@ export async function readDocument(
         return data ?? null;
     }
 
-    const { data: mdResult } = await tryto(async () => {
-        const markitdown = new MarkItDown();
-        const result = await markitdown.convert(filepath);
-        return result?.text_content ?? null;
-    });
+    if (ext === ".pdf") {
+        const { data: text } = await tryto(extractPdfText(filepath));
+        return text ?? null;
+    }
 
-    return mdResult ?? null;
+    if (ext === ".html" || ext === ".htm") {
+        const { data } = await tryto(readFile(filepath, "utf-8"));
+        if (!data) return null;
+        return data
+            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+            .replace(/<[^>]+>/g, "")
+            .replace(/&nbsp;/g, " ")
+            .replace(/&amp;/g, "&")
+            .replace(/&lt;/g, "<")
+            .replace(/&gt;/g, ">")
+            .replace(/&quot;/g, '"')
+            .replace(/&#(\d+);/g, (_, c) => String.fromCharCode(Number(c)))
+            .replace(/\n{3,}/g, "\n\n")
+            .trim();
+    }
+
+    return null;
 }
 
 export async function saveDocument(
