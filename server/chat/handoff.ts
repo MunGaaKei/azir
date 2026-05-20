@@ -35,7 +35,10 @@ const handoffPlanSchema = z.object({
                 agentId: z.number().int().positive(),
                 task: z.string().trim().min(1),
                 reason: z.string().trim().min(1),
-                dependsOn: z.array(z.number().int().positive()).optional().default([]),
+                dependsOn: z
+                    .array(z.number().int().positive())
+                    .optional()
+                    .default([]),
             }),
         )
         .max(MAX_ROUTED_AGENTS)
@@ -105,7 +108,7 @@ async function createRoutingPlan(params: {
             "如果子任务之间有依赖关系（一个 Agent 的输出是另一个 Agent 的输入），用 dependsOn 字段表达依赖。没有依赖的任务可以并行执行。",
             "选择必须严格基于候选 Agent 的描述与用户问题的匹配度。",
             "task 必须是分配给对应 Agent 的具体执行指令，保留用户问题里的关键上下文，避免过于笼统。",
-            "如果没有明显合适的 Agent，返回空 tasks。",
+            "如果没有较高合适度的 Agent，返回空 tasks。",
             "你必须只返回一个 JSON 对象，不要输出 Markdown、解释或额外文字。",
             'JSON 结构必须是：{"summary":"", "tasks":[{"agentId":1,"task":"","reason":"","dependsOn":[]}]}。dependsOn 为空表示无依赖可并行。',
         ].join("\n"),
@@ -157,7 +160,11 @@ function toExecutionPlan(
         .filter((item): item is AgentExecutionPlanItem => !!item);
 }
 
-async function resolveSelectedAgents(agentIds: number[], prompt: string, uid: string) {
+async function resolveSelectedAgents(
+    agentIds: number[],
+    prompt: string,
+    uid: string,
+) {
     if (agentIds.length > 0) {
         const agents = await getAgentsByIds(agentIds, uid);
         if (agents.length > 0) {

@@ -1,10 +1,11 @@
 import { useAgentsStore } from "@/stores/agents";
 import { useChatStore } from "@/stores/chat";
 import { Button, Editor, Upload } from "@ioca/react";
-import { Paperclip } from "lucide-react";
+import { CornerRightUp, Paperclip } from "lucide-react";
 import { type KeyboardEvent, useState } from "react";
 import { flushSync } from "react-dom";
 import css from "./index.module.css";
+import ControlSetting from "./setting";
 import {
     type AttachedFile,
     type UploadFileLike,
@@ -112,6 +113,9 @@ export default function AgentEditor() {
         useChatStore.getState().setCurrentProject(projects[nextIndex].id);
     };
 
+    const chatMode = useChatStore((s) => s.chatMode);
+    const setChatMode = useChatStore((s) => s.setChatMode);
+
     return (
         <footer className={css.editor}>
             <div className={css.controls}>
@@ -126,10 +130,10 @@ export default function AgentEditor() {
                     onFilesChange={handleFilesChange}
                 />
 
-                {/* <ControlSetting /> */}
+                <ControlSetting chatMode={chatMode} onChange={setChatMode} />
 
-                <Button flat className="ml-auto" onClick={submit}>
-                    发送
+                <Button flat square onClick={submit}>
+                    <CornerRightUp size="20" />
                 </Button>
             </div>
 

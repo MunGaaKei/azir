@@ -17,6 +17,7 @@ async function chat(c: Context) {
 			base64: string;
 			type: string;
 		}>;
+		chatMode?: boolean;
 	};
 
 	return createChatResponse(body, uid);

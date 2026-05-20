@@ -1,7 +1,13 @@
 import { Button, Checkbox, Popup } from "@ioca/react";
 import { SlidersHorizontal } from "lucide-react";
 
-export default function ControlSetting() {
+export default function ControlSetting({
+    chatMode,
+    onChange,
+}: {
+    chatMode: boolean;
+    onChange: (value: boolean) => void;
+}) {
     return (
         <Popup
             position="top"
@@ -9,7 +15,12 @@ export default function ControlSetting() {
             trigger="click"
             content={
                 <div className="pd-12">
-                    <Checkbox.Item label="Chat" type="switch" />
+                    <Checkbox.Item
+                        label="聊天模式"
+                        type="switch"
+                        value={chatMode}
+                        onChange={onChange}
+                    />
                 </div>
             }
         >

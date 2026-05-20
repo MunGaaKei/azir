@@ -2,8 +2,9 @@ import Messages, { ScrollContext } from "@/components/messages";
 import { useChatStore } from "@/stores/chat";
 import { Button, Input, Popconfirm } from "@ioca/react";
 import clsx from "clsx";
-import { Folder, MessageSquarePlus, Shredder, X } from "lucide-react";
+import { MessageSquarePlus, Shredder, SquareX } from "lucide-react";
 import { useEffect, useRef } from "react";
+import Drive from "./drive";
 import css from "./index.module.css";
 
 function ClearButton({ projectId }: { projectId: string }) {
@@ -25,7 +26,7 @@ function ClearButton({ projectId }: { projectId: string }) {
                 clearMessages(projectId);
             }}
         >
-            <Button flat square size="small">
+            <Button flat square>
                 <Shredder size={20} />
             </Button>
         </Popconfirm>
@@ -82,13 +83,6 @@ export default function Projects() {
                 >
                     <div className={css.header}>
                         <Input
-                            prepend={
-                                <Folder
-                                    size={16}
-                                    className="mr-8"
-                                    fill="var(--color-8)"
-                                />
-                            }
                             className="mr-auto font-bold"
                             border
                             style={{ borderWidth: 0 }}
@@ -99,12 +93,13 @@ export default function Projects() {
                             }
                         />
 
+                        <Drive projectId={project.id} />
+
                         <ClearButton projectId={project.id} />
 
                         <Button
                             flat
                             square
-                            size="small"
                             onClick={(event) => {
                                 event.stopPropagation();
                                 addProject();
@@ -114,18 +109,18 @@ export default function Projects() {
                         </Button>
 
                         {project.id !== "default-project" && (
-                            <Button
-                                flat
-                                square
-                                className="error"
-                                size="small"
-                                onClick={(event) => {
-                                    event.stopPropagation();
+                            <Popconfirm
+                                icon={null}
+                                content="确认关闭窗口"
+                                okButtonProps={{ className: "bg-error" }}
+                                onOk={() => {
                                     removeProject(project.id);
                                 }}
                             >
-                                <X size={20} />
-                            </Button>
+                                <Button flat square>
+                                    <SquareX size={20} />
+                                </Button>
+                            </Popconfirm>
                         )}
                     </div>
 

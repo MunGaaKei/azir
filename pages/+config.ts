@@ -6,7 +6,7 @@ import type { Config } from "vike/types";
 
 const config: Config = {
     // https://vike.dev/head-tags
-    title: "Azir ⚇",
+    title: "AZIR ❋",
     description: "Azir Agents",
     ssr: true,
 

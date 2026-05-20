@@ -284,7 +284,7 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
                             desc:
                                 desc +
                                 (desc ? "\n\n" : "") +
-                                "将内容封装为文件供用户下载：\n\n```azir-file\nfilename: 文件名.[suffix]\nbase64: <将内容转换为 base64 后填入此处>\n```",
+                                "\n```azir-file\nfilename: example.pdf\nbase64: <base64>\n```",
                         });
                     }}
                 >

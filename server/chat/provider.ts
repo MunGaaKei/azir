@@ -107,7 +107,7 @@ function withDeepSeekThinkingDisabled(body: BodyInit | null | undefined) {
     });
 }
 
-function createClient(agentConfig: AgentWithModel) {
+export function createClient(agentConfig: AgentWithModel) {
     const originalFetch = globalThis.fetch;
 
     return new OpenAI({

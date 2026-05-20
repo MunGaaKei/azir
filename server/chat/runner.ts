@@ -11,8 +11,12 @@ import {
 import { log } from "./logger";
 import { FileSession } from "./memories/file-session";
 import { buildUserPrompt, type ChatUploadFile } from "./prompt";
-import { createAgent, createRunner } from "./provider";
-import { resolveMcpServers } from "./utils";
+import {
+    createAgent,
+    createClient,
+    createDefaultAgentConfig,
+    createRunner,
+} from "./provider";
 import {
     cleanupUploadedFiles,
     setUploadedFiles,
@@ -21,6 +25,7 @@ import {
 import {
     createActivityId,
     extractMessageText,
+    resolveMcpServers,
     sanitizeFilename,
     toErrorMessage,
     truncate,
@@ -31,6 +36,7 @@ export type ChatRunnerPayload = {
     agentIds?: number[];
     requestId?: string;
     files?: ChatUploadFile[];
+    chatMode?: boolean;
 };
 
 type StreamWriter = WritableStreamDefaultWriter<Uint8Array>;
@@ -254,7 +260,6 @@ async function runSingleAgent(params: {
         );
     });
 
-    // Clean up MCP servers regardless of result
     if (mcpManager) {
         await mcpManager.close().catch(() => {});
     }
@@ -276,6 +281,112 @@ async function runSingleAgent(params: {
     }
 
     return agentOutput;
+}
+
+async function runDirectChat(params: {
+    writer: StreamWriter;
+    encoder: TextEncoder;
+    requestId: string;
+    prompt: string;
+    files: ChatUploadFile[];
+    uid: string;
+}): Promise<string> {
+    const agentConfig = createDefaultAgentConfig();
+    const client = createClient(agentConfig);
+    const activityId = createActivityId();
+    const session = new FileSession(params.uid);
+
+    const historyItems = await session.getItems(20);
+    const messages: { role: "user" | "assistant"; content: string }[] = [];
+
+    for (const item of historyItems) {
+        const cast = item as { role?: string; content?: unknown };
+        const extracted = extractMessageText(cast);
+        if (extracted && (cast.role === "user" || cast.role === "assistant")) {
+            messages.push({
+                role: cast.role as "user" | "assistant",
+                content: extracted.text,
+            });
+        }
+    }
+
+    const userPrompt = buildUserPrompt(params.prompt, params.files);
+    messages.push({ role: "user", content: userPrompt });
+
+    void log(
+        params.requestId,
+        `Chat mode 开始处理: "${truncate(params.prompt, 100)}"`,
+    );
+
+    await writeEvent(params.writer, params.encoder, {
+        type: "start",
+        requestId: params.requestId,
+        activityId,
+        agentId: 0,
+        agentName: "Chat",
+    });
+
+    let fullContent = "";
+
+    try {
+        const stream = await client.chat.completions.create({
+            model: agentConfig.model.name,
+            messages,
+            stream: true,
+        });
+
+        for await (const chunk of stream) {
+            const delta = chunk.choices?.[0]?.delta?.content;
+            if (delta) {
+                fullContent += delta;
+                await writeEvent(params.writer, params.encoder, {
+                    type: "append",
+                    requestId: params.requestId,
+                    activityId,
+                    agentId: 0,
+                    agentName: "Chat",
+                    content: delta,
+                });
+            }
+        }
+    } catch (err) {
+        await writeEvent(params.writer, params.encoder, {
+            type: "error",
+            requestId: params.requestId,
+            activityId,
+            agentId: 0,
+            agentName: "Chat",
+            message: toErrorMessage(err),
+        });
+        void log(params.requestId, `Chat mode 出错: ${toErrorMessage(err)}`);
+        return `[错误] ${toErrorMessage(err)}`;
+    }
+
+    await writeEvent(params.writer, params.encoder, {
+        type: "done",
+        requestId: params.requestId,
+        activityId,
+        agentId: 0,
+        agentName: "Chat",
+    });
+
+    await session.addItems([
+        {
+            role: "user",
+            content: [{ type: "input_text", text: params.prompt }],
+        } as never,
+        {
+            role: "assistant",
+            content: [{ type: "output_text", text: fullContent }],
+        } as never,
+    ]);
+
+    void log(
+        params.requestId,
+        `Chat mode 响应完成 (${fullContent.length} 字符)`,
+    );
+
+    return fullContent;
 }
 
 async function executePlan(params: {
@@ -428,6 +539,18 @@ export async function createChatResponse(
 
                 void (async () => {
                     const { error } = await tryto(async () => {
+                        if (payload.chatMode) {
+                            await runDirectChat({
+                                writer: writer as StreamWriter,
+                                encoder,
+                                requestId,
+                                prompt,
+                                files,
+                                uid,
+                            });
+                            return;
+                        }
+
                         const globalSession = new FileSession(uid);
                         await prepareUploadedFiles(requestId, files);
                         const candidates = await getAgentCandidates(uid);

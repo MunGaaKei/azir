@@ -86,6 +86,8 @@ export type ChatStore = {
     currentProjectId: string;
     messages: ChatMessage[];
     loading: boolean;
+    chatMode: boolean;
+    setChatMode: (value: boolean) => void;
     send: (payload: SendPayload) => Promise<void>;
     retry: (requestId: string) => Promise<void>;
     stop: (messageId: string, requestId?: string) => void;

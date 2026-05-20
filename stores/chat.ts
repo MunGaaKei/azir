@@ -116,6 +116,7 @@ async function sendRequest(params: {
     }>;
     userMessage: ChatMessage;
     optimisticMessages?: ChatMessage[];
+    chatMode: boolean;
     set: ChatStoreSetter;
 }) {
     const requestId = params.userMessage.requestId;
@@ -151,6 +152,7 @@ async function sendRequest(params: {
                     agentIds: params.agentIds ?? [],
                     requestId,
                     files: params.files ?? [],
+                    chatMode: params.chatMode,
                 }),
                 signal: controller.signal,
             });
@@ -496,6 +498,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     currentProjectId: DEFAULT_PROJECT_ID,
     messages: [],
     loading: false,
+    chatMode: false,
+    setChatMode: (value: boolean) => {
+        set({ chatMode: value });
+    },
     addProject: () => {
         const nextId = createRandomProjectId();
         set((state) => ({
@@ -557,6 +563,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             agentIds,
             files,
             userMessage,
+            chatMode: get().chatMode,
             set,
         });
     },
@@ -611,6 +618,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             agentIds: sourceUserMessage.agentIds ?? [],
             optimisticMessages,
             userMessage,
+            chatMode: get().chatMode,
             set,
         });
     },
