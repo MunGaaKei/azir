@@ -29,7 +29,6 @@
         "lucide-react": "^1.14.0",
         "markitdown-ts": "^0.0.10",
         "motion": "^12.38.0",
-        "node-cron": "^4.2.1",
         "openai": "^6.37.0",
         "pdf-lib": "^1.17.1",
         "pg": "^8.20.0",
@@ -48,7 +47,6 @@
     },
     "devDependencies": {
         "@types/node": "^20.19.40",
-        "@types/node-cron": "^3.0.11",
         "@types/pubsub-js": "^1.8.6",
         "@types/react": "^19.2.14",
         "@types/react-dom": "^19.2.3",

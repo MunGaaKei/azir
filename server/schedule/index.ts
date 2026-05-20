@@ -1,4 +1,3 @@
-import cron, { type ScheduledTask } from "node-cron";
 import { db } from "../db";
 import { resolveMcpServers, toErrorMessage } from "../chat/utils";
 import { createAgent, createRunner } from "../chat/provider";
@@ -87,8 +86,107 @@ async function disableSchedule(agentId: number) {
     }
 }
 
+// Lightweight cron scheduler — replaces node-cron (incompatible with Vercel ESM bundle)
+interface CronTask {
+    stop(): void;
+}
+
+function matchCronField(pattern: string, value: number): boolean {
+    if (pattern === "*") return true;
+
+    for (const part of pattern.split(",")) {
+        const trimmed = part.trim();
+        let step = 1;
+        let rangeParts: string[];
+
+        if (trimmed.includes("/")) {
+            const [rangePart, stepStr] = trimmed.split("/");
+            step = parseInt(stepStr, 10);
+            if (Number.isNaN(step) || step < 1) continue;
+            rangeParts = rangePart === "*" ? ["0", "59"] : rangePart.split("-");
+        } else {
+            rangeParts = trimmed.includes("-") ? trimmed.split("-") : [trimmed, trimmed];
+        }
+
+        if (rangeParts.length !== 2) continue;
+
+        const start = parseInt(rangeParts[0], 10);
+        const end = parseInt(rangeParts[1], 10);
+        if (Number.isNaN(start) || Number.isNaN(end)) continue;
+
+        if (value < start || value > end) continue;
+        if ((value - start) % step === 0) return true;
+    }
+    return false;
+}
+
+function matchCron(expr: string, date: Date): boolean {
+    const parts = expr.trim().split(/\s+/);
+    if (parts.length < 5) return false;
+
+    return (
+        matchCronField(parts[0], date.getMinutes()) &&
+        matchCronField(parts[1], date.getHours()) &&
+        matchCronField(parts[2], date.getDate()) &&
+        matchCronField(parts[3], date.getMonth() + 1) &&
+        matchCronField(parts[4], date.getDay())
+    );
+}
+
+function validateCron(expr: string): boolean {
+    const parts = expr.trim().split(/\s+/);
+    if (parts.length !== 5) return false;
+    const ranges = [[0, 59], [0, 23], [1, 31], [1, 12], [0, 7]];
+    return parts.every((part, i) => {
+        const [min, max] = ranges[i];
+        return part.split(",").every((segment) => {
+            const s = segment.trim();
+            if (s === "*") return true;
+            let startStr = s;
+            let endStr = s;
+            if (s.includes("/")) {
+                const [rangePart, stepStr] = s.split("/");
+                const step = parseInt(stepStr, 10);
+                if (Number.isNaN(step) || step < 1) return false;
+                if (rangePart === "*") return true;
+                const rp = rangePart.split("-");
+                if (rp.length !== 2) return false;
+                startStr = rp[0];
+                endStr = rp[1];
+            } else if (s.includes("-")) {
+                const rp = s.split("-");
+                if (rp.length !== 2) return false;
+                startStr = rp[0];
+                endStr = rp[1];
+            }
+            const start = parseInt(startStr, 10);
+            const end = parseInt(endStr, 10);
+            return !Number.isNaN(start) && !Number.isNaN(end) && start >= min && start <= max && end >= min && end <= max;
+        });
+    });
+}
+
+function scheduleCron(expr: string, cb: () => void): CronTask {
+    let running = true;
+
+    // Check every second, fire on the second when cron matches (node-cron compatible)
+    const interval = setInterval(() => {
+        if (!running) return;
+        if (matchCron(expr, new Date())) {
+            cb();
+        }
+    }, 1000);
+
+    return {
+        stop() {
+            running = false;
+            clearInterval(interval);
+        },
+    };
+}
+
 export class SchedulerService {
-    private jobs = new Map<number, ScheduledTask>();
+    private jobs = new Map<number, CronTask>();
     private timeouts = new Map<number, NodeJS.Timeout>();
     private running = new Set<number>();
 
@@ -189,10 +287,10 @@ export class SchedulerService {
             days: schedule.days,
         });
 
-        if (!cron.validate(cronExpr)) return;
+        if (!validateCron(cronExpr)) return;
 
         const agentId = agent.id;
-        const job = cron.schedule(cronExpr, async () => {
+        const job = scheduleCron(cronExpr, async () => {
             console.log(`[Schedule] Recurring agent ${agentId} executing at ${new Date().toISOString()}`);
             if (this.running.has(agentId)) return;
             this.running.add(agentId);
