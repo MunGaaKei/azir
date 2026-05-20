@@ -91,6 +91,18 @@ api.post("/upload", async (c: Context) => {
         return c.json({ message: "无效的文件名" }, 400);
     }
 
+    const { data: existing } = await tryto(listDocuments(uid));
+    const totalSize = existing?.reduce((sum, f) => sum + f.size, 0) ?? 0;
+    const MAX_STORAGE = 20 * 1024 * 1024;
+    if (totalSize + file.size > MAX_STORAGE) {
+        return c.json(
+            {
+                message: `存储空间不足，每个用户最多 20MB，当前已使用 ${(totalSize / 1024 / 1024).toFixed(1)}MB`,
+            },
+            413,
+        );
+    }
+
     const dir = await ensureDocDir(uid);
     const filepath = path.join(dir, filename);
     if (!filepath.startsWith(dir)) {

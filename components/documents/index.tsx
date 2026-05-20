@@ -332,11 +332,10 @@ export default function Documents() {
                         <BookAudio size={20} />
                         <b>文档库</b>
 
-                        <Upload
-                            key={uploadKey}
-                            className="ml-auto"
-                            onFilesChange={handleUpload}
-                        >
+                        <i className="ml-auto color-5 font-sm">
+                            [{formatFileSize(files.reduce((s, f) => s + f.size, 0))} / 20MB]
+                        </i>
+                        <Upload key={uploadKey} onFilesChange={handleUpload}>
                             <Button flat size="small" loading={uploading}>
                                 <UploadIcon size={16} /> 上传
                             </Button>
