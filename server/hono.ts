@@ -9,6 +9,7 @@ dotenv.config({
 
 import agentApp from "./agent";
 import chatApp from "./chat";
+import docsApp from "./docs";
 import mcpApp from "./mcp";
 import mcpRemoteApp from "./mcp/remote";
 import memoriesApp from "./memories";
@@ -24,6 +25,7 @@ export function createApp() {
 
     app.route("/api/agent", agentApp);
     app.route("/api/chat", chatApp);
+    app.route("/api/docs", docsApp);
     app.route("/api/model", modelApp);
     app.route("/api/uid", uidApp);
     app.route("/api/mcp", mcpApp);

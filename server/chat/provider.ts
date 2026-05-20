@@ -14,6 +14,12 @@ import {
     createReadUploadedFileTool,
     getUploadedFiles,
 } from "./tools/file-reader";
+import {
+    createListDocumentsTool,
+    createReadDocumentTool,
+    createSaveDocumentTool,
+    createGeneratePdfTool,
+} from "./tools/document-library";
 import { tavilyWebSearchTool } from "./tools/web-search";
 
 export type AgentProviderOptions = {
@@ -21,7 +27,7 @@ export type AgentProviderOptions = {
     additionalInstructions?: string;
 };
 
-type AgentPermission = "websearch" | "file_reader";
+type AgentPermission = "websearch" | "file_reader" | "docs";
 
 function getStringArray(value: unknown) {
     if (!Array.isArray(value)) {
@@ -37,7 +43,8 @@ function getStringArray(value: unknown) {
 function getAgentPermissions(value: unknown): Set<AgentPermission> {
     return new Set(
         getStringArray(value).filter(
-            (item): item is AgentPermission => item === "websearch",
+            (item): item is AgentPermission =>
+                item === "websearch" || item === "docs",
         ),
     );
 }
@@ -147,6 +154,13 @@ async function resolveTools(
 
     if (permissions.has("websearch")) {
         tools.push(tavilyWebSearchTool);
+    }
+
+    if (permissions.has("docs")) {
+        tools.push(createListDocumentsTool(agentConfig.uid));
+        tools.push(createReadDocumentTool(agentConfig.uid));
+        tools.push(createSaveDocumentTool(agentConfig.uid));
+        tools.push(createGeneratePdfTool(agentConfig.uid));
     }
 
     if (options.requestId && getUploadedFiles(options.requestId).length > 0) {

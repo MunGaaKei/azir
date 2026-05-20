@@ -4,7 +4,6 @@ import { Button, Input, Popconfirm } from "@ioca/react";
 import clsx from "clsx";
 import { MessageSquarePlus, Shredder, SquareX } from "lucide-react";
 import { useEffect, useRef } from "react";
-import Drive from "./drive";
 import css from "./index.module.css";
 
 function ClearButton({ projectId }: { projectId: string }) {
@@ -92,8 +91,6 @@ export default function Projects() {
                                 setProjectName(project.id, String(value ?? ""))
                             }
                         />
-
-                        <Drive projectId={project.id} />
 
                         <ClearButton projectId={project.id} />
 

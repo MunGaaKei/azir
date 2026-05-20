@@ -1,7 +1,7 @@
 import type { Agent } from "@prisma/client";
 import type { ReactNode } from "react";
 
-export type AgentPermission = "websearch";
+export type AgentPermission = "websearch" | "docs";
 export type AgentSkill = string;
 
 export const required = {
@@ -51,7 +51,8 @@ export function getAgentFormValues(agent?: Agent): AgentFormValues {
             : [],
         permissions: Array.isArray(agent?.permissions)
             ? agent.permissions.filter(
-                  (item): item is AgentPermission => item === "websearch",
+                  (item): item is AgentPermission =>
+                      item === "websearch" || item === "docs",
               )
             : [],
         routable: agent?.routable !== false ? ["true"] : [],

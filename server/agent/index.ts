@@ -6,12 +6,17 @@ import { listAvailableSkills } from "../skills";
 
 const api = new Hono();
 
-function getAgentPermissions(value: unknown): Array<"websearch"> {
+function getAgentPermissions(
+    value: unknown,
+): Array<"websearch" | "docs"> {
     if (!Array.isArray(value)) {
         return [];
     }
 
-    return value.filter((item): item is "websearch" => item === "websearch");
+    return value.filter(
+        (item): item is "websearch" | "docs" =>
+            item === "websearch" || item === "docs",
+    );
 }
 
 async function getAgentSkills(value: unknown, uid: string) {

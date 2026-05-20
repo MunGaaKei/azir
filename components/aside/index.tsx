@@ -3,6 +3,7 @@ import { Button, Message, Popconfirm } from "@ioca/react";
 import { Shredder, UserRoundKey } from "lucide-react";
 import { useState } from "react";
 import AgentList from "../agent/list";
+import Documents from "../documents";
 import { useUidModal } from "../uid/modal";
 
 export function Aside() {
@@ -34,6 +35,8 @@ export function Aside() {
             </a>
 
             <AgentList />
+
+            <Documents />
 
             <Popconfirm
                 icon={null}

@@ -23,10 +23,10 @@ import { MCPSection } from "../mcp/mcp-section";
 import { MCPServerModal } from "../mcp/mcp-server-modal";
 import { MCP_SERVERS_UPDATED_TOPIC } from "../mcp/types";
 import { ModelSelect } from "../model/modal";
+import { ScheduleSection } from "../schedule/schedule-section";
 import { SkillModal, SkillSelect } from "../skill/modal";
 import { SKILLS_UPDATED_TOPIC } from "../skill/utils";
 import { BotAnimate } from "../ui/bot-animate";
-import { ScheduleSection } from "../schedule/schedule-section";
 import AgentActivity from "./activity";
 import {
     type AgentPermission,
@@ -42,6 +42,42 @@ type SkillOption = {
     description: string;
 };
 
+function buildMeta(
+    values: Record<string, unknown>,
+    agent: Agent | undefined,
+    scheduleEnabled: boolean,
+): Record<string, unknown> | undefined {
+    const hadSchedule = !!(agent?.meta as Record<string, unknown> | undefined)
+        ?.schedule;
+
+    const metaVal = values.meta as Record<string, unknown> | undefined;
+    const mcpServers = values.mcp_servers as unknown[] | undefined;
+
+    if (
+        !metaVal?.color &&
+        !mcpServers?.length &&
+        !scheduleEnabled &&
+        !hadSchedule
+    ) {
+        return undefined;
+    }
+
+    const meta: Record<string, unknown> = {};
+    if (metaVal?.color) meta.color = metaVal.color;
+    if (mcpServers?.length) meta.mcp_servers = mcpServers;
+    if (scheduleEnabled || hadSchedule) {
+        const schedule: Record<string, unknown> = { enabled: scheduleEnabled };
+        if (scheduleEnabled) {
+            const s = values.schedule as Record<string, unknown> | undefined;
+            schedule.time = (s?.time as string) || "09:00";
+            schedule.days = Array.isArray(s?.days) ? s.days : [];
+            schedule.prompt = ((s?.prompt as string) || "").trim();
+        }
+        meta.schedule = schedule;
+    }
+    return meta;
+}
+
 function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
     const agents = useAgentsStore((state) => state.agents);
     const setAgents = useAgentsStore((state) => state.setAgents);
@@ -51,21 +87,26 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
     const form = Form.useForm();
     const { signal, cancel } = useAbort();
     const [loading, setLoading] = useState(false);
+    const [polishing, setPolishing] = useState(false);
     const [skillOptions, setSkillOptions] = useState<SkillOption[]>([]);
-    const agentMentionOptions = createAgentMentionOptions(agents);
     const [scheduleEnabled, setScheduleEnabled] = useState(false);
+    const agentMentionOptions = createAgentMentionOptions(agents);
 
     useEffect(() => {
         const values = getAgentFormValues(agent);
-        form.set(values);
-
         const meta = agent?.meta as Record<string, unknown> | undefined;
         const s = meta?.schedule as
-            | { enabled?: boolean; time?: string; days?: string[]; prompt?: string }
+            | {
+                  enabled?: boolean;
+                  time?: string;
+                  days?: string[];
+                  prompt?: string;
+              }
             | undefined;
 
         setScheduleEnabled(s?.enabled ?? false);
         form.set({
+            ...values,
             "schedule.time": s?.time ?? "09:00",
             "schedule.days": Array.isArray(s?.days) ? s.days : [],
             "schedule.prompt": s?.prompt ?? "",
@@ -73,18 +114,15 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
     }, [agent, form]);
 
     useEffect(() => {
-        function loadSkills() {
+        const loadSkills = () => {
             tryto(request<SkillOption[]>("/api/agent/skills"))
                 .then(({ data }) => {
-                    if (data) {
-                        setSkillOptions(data);
-                    }
+                    if (data) setSkillOptions(data);
                 })
                 .catch(() => undefined);
-        }
+        };
 
         loadSkills();
-
         const token = PubSub.subscribe(SKILLS_UPDATED_TOPIC, loadSkills);
         return () => {
             PubSub.unsubscribe(token);
@@ -93,7 +131,6 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
 
     useEffect(() => {
         initMcpServers().catch(() => undefined);
-
         const token = PubSub.subscribe(MCP_SERVERS_UPDATED_TOPIC, () => {
             initMcpServers().catch(() => undefined);
         });
@@ -124,23 +161,17 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
 
     const handleSubmit = async () => {
         const values = await form.validate();
-
-        if (typeof values === "boolean") {
-            return;
-        }
+        if (typeof values === "boolean") return;
 
         const modelId = Number(values.model_id);
-
         if (Number.isNaN(modelId)) {
-            form.set({
-                model_id: values.model_id,
-            });
+            form.set({ model_id: values.model_id });
             return;
         }
 
         setLoading(true);
 
-        const hadSchedule = !!(agent?.meta as Record<string, unknown> | undefined)?.schedule;
+        const meta = buildMeta(values, agent, scheduleEnabled);
 
         const { error, data } = await tryto(
             request<Agent>(agent ? `/api/agent/${agent.id}` : "/api/agent", {
@@ -158,38 +189,13 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
                     permissions: Array.isArray(values.permissions)
                         ? values.permissions.filter(
                               (item): item is AgentPermission =>
-                                  item === "websearch",
+                                  item === "websearch" || item === "docs",
                           )
                         : [],
                     routable:
                         Array.isArray(values.routable) &&
                         values.routable.includes("true"),
-                    ...(values["meta.color"] || values.mcp_servers?.length || scheduleEnabled || hadSchedule
-                        ? {
-                              meta: {
-                                  ...(values["meta.color"]
-                                      ? { color: values["meta.color"] }
-                                      : {}),
-                                  ...(values.mcp_servers?.length
-                                      ? { mcp_servers: values.mcp_servers }
-                                      : {}),
-                                  ...(scheduleEnabled || hadSchedule
-                                      ? {
-                                            schedule: {
-                                                enabled: scheduleEnabled,
-                                                ...(scheduleEnabled
-                                                    ? {
-                                                          time: (values.schedule as { time?: string })?.time || "09:00",
-                                                          days: (values.schedule as { days?: string[] })?.days || [],
-                                                          prompt: ((values.schedule as { prompt?: string })?.prompt || "").trim(),
-                                                      }
-                                                    : {}),
-                                            },
-                                        }
-                                      : {}),
-                              },
-                          }
-                        : {}),
+                    ...(meta ? { meta } : {}),
                 },
                 signal: signal(),
             }),
@@ -218,6 +224,28 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
         close?.();
     };
 
+    const handlePolish = async () => {
+        const desc = form.get("desc") as string | undefined;
+        if (!desc?.trim()) return;
+
+        setPolishing(true);
+        try {
+            const res = await request<{ content: string }>("/api/chat/prompt", {
+                method: "POST",
+                body: {
+                    prompt: `你是一个 AI Agent 描述优化专家。请将以下描述优化为专业的 Agent 指令，目标是：1）让 Agent 清晰理解自己的职责和执行方式；2）让路由调度系统能准确判断该 Agent 适合处理哪些任务。要求：不超过140个中文字符，或不超过400个英文字符。\n\n${desc}`,
+                },
+            });
+            if (res?.content) {
+                form.set({ desc: res.content.trim() });
+            }
+        } catch {
+            Message.error("润色失败");
+        } finally {
+            setPolishing(false);
+        }
+    };
+
     return (
         <Form
             form={form}
@@ -237,18 +265,13 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
                 <Form.Field name="meta.color">
                     <ColorPicker
                         label="颜色"
-                        style={{
-                            alignItems: "center",
-                            width: 100,
-                        }}
+                        style={{ alignItems: "center", width: 100 }}
                     >
-                        {({ value }) => {
-                            return (
-                                <span>
-                                    <BotAnimate fill={value ?? "transparent"} />
-                                </span>
-                            );
-                        }}
+                        {({ value }) => (
+                            <span>
+                                <BotAnimate fill={value ?? "transparent"} />
+                            </span>
+                        )}
                     </ColorPicker>
                 </Form.Field>
             </Flex>
@@ -278,6 +301,14 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
                 <Button
                     size="small"
                     secondary
+                    loading={polishing}
+                    onClick={() => void handlePolish()}
+                >
+                    润色
+                </Button>
+                <Button
+                    size="small"
+                    secondary
                     onClick={() => {
                         const desc = form.get("desc") || "";
                         form.set({
@@ -302,6 +333,7 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
                     placeholder="尽可能描述TA应该在什么时候，做什么事情"
                     memtion={[
                         {
+                            key: "@",
                             options: agentMentionOptions,
                             insert: insertAgentMention,
                         },
@@ -345,10 +377,8 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
                     type="switch"
                     label="权限"
                     options={[
-                        {
-                            label: "联网搜索",
-                            value: "websearch",
-                        },
+                        { label: "联网搜索", value: "websearch" },
+                        { label: "读写文件", value: "docs" },
                     ]}
                 />
             </Form.Field>
@@ -380,12 +410,7 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
                         </Flex>
                     }
                     type="switch"
-                    options={[
-                        {
-                            label: "参与调度",
-                            value: "true",
-                        },
-                    ]}
+                    options={[{ label: "参与调度", value: "true" }]}
                 />
             </Form.Field>
 

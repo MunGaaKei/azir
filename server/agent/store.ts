@@ -113,7 +113,7 @@ export async function updateAgent(
 		desc: string | null;
 		modelId: number;
 		skills: string[];
-		permissions: Array<"websearch">;
+		permissions: Array<"websearch" | "docs">;
 		meta?: Record<string, unknown>;
 		routable?: boolean;
 	},
