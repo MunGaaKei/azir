@@ -330,6 +330,7 @@ function AgentForm({ agent, close }: { agent?: Agent; close?: () => void }) {
                     autosize
                     hideControl
                     mode="plaintextOnMemtion"
+                    spellCheck={false}
                     placeholder="尽可能描述TA应该在什么时候，做什么事情"
                     memtion={[
                         {

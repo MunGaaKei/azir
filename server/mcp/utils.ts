@@ -42,6 +42,55 @@ function readRecord(
     return undefined;
 }
 
+import { db } from "../db";
+
+const MCP_AUTH_ERROR_PATTERNS = [
+    /401/,
+    /403/,
+    /unauthorized/i,
+    /token.*(?:expir|invalid|refres)/i,
+    /oauth.*(?:expir|invalid|fail)/i,
+    /authorization.*(?:required|failed|expir)/i,
+];
+
+/**
+ * 检测错误是否由 MCP 远程连接认证过期引起
+ */
+export function isMcpAuthError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    return MCP_AUTH_ERROR_PATTERNS.some((pattern) => pattern.test(message));
+}
+
+/**
+ * 清除指定用户所有 MCP 服务的过期 OAuth tokens（从数据库中）
+ * 确保 UI 能正确显示 "未授权" 状态
+ */
+export async function clearInvalidOAuthTokens(uid: string): Promise<void> {
+    try {
+        const records = await (db as any).mcp.findMany({
+            where: { uid },
+        }) as Array<{ id: number; config: unknown }>;
+
+        for (const record of records) {
+            const config = (record.config ?? {}) as Record<string, unknown>;
+            if (config.authType !== "oauth") continue;
+
+            const oauth = { ...((config.oauth as Record<string, unknown>) || {}) };
+            if (!oauth.tokens) continue;
+
+            delete oauth.tokens;
+            config.oauth = oauth;
+
+            await (db as any).mcp.update({
+                where: { id: record.id },
+                data: { config },
+            });
+        }
+    } catch {
+        // best-effort cleanup
+    }
+}
+
 export function createMcpServerInstance(
     cfg: MCPServerConfig,
     options?: { includeToolFilter?: boolean; uid?: string },

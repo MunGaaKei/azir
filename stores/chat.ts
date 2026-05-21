@@ -13,9 +13,10 @@ import type {
 
 export type { ChatMessage, ChatProject };
 
-let currentController: AbortController | null = null;
-let currentRequestId: string | null = null;
-let currentMessageId: string | null = null;
+const activeRequests = new Map<
+    string,
+    { controller: AbortController; messageId: string }
+>();
 const PENDING_ASSISTANT_PREFIX = "pending-assistant:";
 const DEFAULT_PROJECT_ID = "default-project";
 const DEFAULT_PROJECT: ChatProject = {
@@ -127,10 +128,12 @@ async function sendRequest(params: {
     const controller = new AbortController();
     const decoder = new TextDecoder();
     let buffer = "";
+    let currentMessageId = createPendingAssistantId(requestId);
 
-    currentController = controller;
-    currentRequestId = requestId;
-    currentMessageId = createPendingAssistantId(requestId);
+    activeRequests.set(requestId, {
+        controller,
+        messageId: currentMessageId,
+    });
     params.set((state) => ({
         loading: true,
         messages: params.optimisticMessages ?? [
@@ -194,7 +197,9 @@ async function sendRequest(params: {
                         continue;
                     }
 
-                    handleStreamEvent(event, params.set);
+                    handleStreamEvent(event, params.set, (id) => {
+                        currentMessageId = id;
+                    });
                 }
             }
 
@@ -216,41 +221,40 @@ async function sendRequest(params: {
     if (responseResult.error) {
         const error = responseResult.error;
         const aborted = controller.signal.aborted;
+        const alreadyHandled = !activeRequests.has(requestId);
         const message =
             error instanceof Error && error.message
                 ? error.message
                 : "网络异常，请稍后重试";
 
-        if (aborted) {
-            useActivityStore.getState().stopRunning();
-            params.set((state) => ({
-                loading: false,
-                messages: stopStreamingMessages(
-                    state.messages,
-                    currentMessageId,
-                    requestId,
-                ),
-            }));
-        } else {
-            params.set((state) => ({
-                loading: false,
-                messages: updateMessage(
-                    state.messages,
-                    createPendingAssistantId(requestId),
-                    (currentMessage) => ({
-                        ...currentMessage,
-                        content: currentMessage.content || message,
-                        status: "error",
-                    }),
-                ),
-            }));
+        if (!alreadyHandled) {
+            if (aborted) {
+                useActivityStore.getState().stopRunning();
+                params.set((state) => ({
+                    loading: hasActiveAssistantResponse(state.messages),
+                    messages: stopStreamingMessages(
+                        state.messages,
+                        currentMessageId,
+                        requestId,
+                    ),
+                }));
+            } else {
+                params.set((state) => ({
+                    loading: hasActiveAssistantResponse(state.messages),
+                    messages: updateMessage(
+                        state.messages,
+                        createPendingAssistantId(requestId),
+                        (currentMessage) => ({
+                            ...currentMessage,
+                            content: currentMessage.content || message,
+                            status: "error",
+                        }),
+                    ),
+                }));
+            }
         }
 
-        if (currentController === controller) {
-            currentController = null;
-            currentRequestId = null;
-            currentMessageId = null;
-        }
+        activeRequests.delete(requestId);
 
         if (!aborted) {
             Message.error(message);
@@ -258,11 +262,7 @@ async function sendRequest(params: {
         }
     }
 
-    if (currentController === controller) {
-        currentController = null;
-        currentRequestId = null;
-        currentMessageId = null;
-    }
+    activeRequests.delete(requestId);
 }
 
 function upsertAssistantMessage(
@@ -328,7 +328,11 @@ async function parseSseEvent(block: string): Promise<ChatStreamEvent | null> {
     return parsed.data;
 }
 
-function handleStreamEvent(event: ChatStreamEvent, set: ChatStoreSetter) {
+function handleStreamEvent(
+    event: ChatStreamEvent,
+    set: ChatStoreSetter,
+    onMessageUpdate?: (messageId: string) => void,
+) {
     switch (event.type) {
         case "start": {
             useActivityStore.getState().start({
@@ -337,6 +341,7 @@ function handleStreamEvent(event: ChatStreamEvent, set: ChatStoreSetter) {
                 agentId: event.agentId,
                 agentName: event.agentName,
             });
+            onMessageUpdate?.(event.activityId);
             set((state) => {
                 const nextMessages = upsertAssistantMessage(
                     removePendingAssistantMessage(
@@ -351,8 +356,6 @@ function handleStreamEvent(event: ChatStreamEvent, set: ChatStoreSetter) {
                         status: "streaming",
                     },
                 );
-
-                currentMessageId = event.activityId;
 
                 return {
                     loading: hasActiveAssistantResponse(nextMessages),
@@ -542,7 +545,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }) => {
         const content = prompt.trim();
         const hasFiles = Array.isArray(files) && files.length > 0;
-        if ((!content && !hasFiles) || get().loading) {
+        if (!content && !hasFiles) {
             return;
         }
         const targetProjectId = projectId ?? get().currentProjectId;
@@ -627,27 +630,33 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             return;
         }
 
-        if (messageId !== currentMessageId) {
+        let targetRequestId = requestId;
+        if (!targetRequestId) {
+            for (const [rid, entry] of activeRequests) {
+                if (entry.messageId === messageId) {
+                    targetRequestId = rid;
+                    break;
+                }
+            }
+        }
+
+        const entry = targetRequestId
+            ? activeRequests.get(targetRequestId)
+            : undefined;
+        if (!entry) {
             return;
         }
 
-        if (requestId && requestId !== currentRequestId) {
-            return;
-        }
+        entry.controller.abort();
+        activeRequests.delete(targetRequestId!);
 
-        const targetRequestId = requestId ?? currentRequestId;
-        const targetMessageId = messageId ?? currentMessageId;
-        currentController?.abort();
-        currentController = null;
-        currentRequestId = null;
-        currentMessageId = null;
-        useActivityStore.getState().stopRunning(targetMessageId);
+        useActivityStore.getState().stopRunning(messageId);
 
         set((state) => ({
-            loading: false,
+            loading: hasActiveAssistantResponse(state.messages),
             messages: stopStreamingMessages(
                 state.messages,
-                targetMessageId,
+                messageId,
                 targetRequestId,
             ),
         }));

@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { db } from "../db";
 import { tryto } from "../../utils";
 import { getUid } from "../uid";
-import { createMcpServerInstance } from "./utils";
+import { createMcpServerInstance, isMcpAuthError } from "./utils";
 import type { MCPServerConfig } from "../../components/mcp/types";
 
 const api = new Hono();
@@ -98,7 +98,10 @@ api.post("/list-tools", async (c) => {
     });
 
     if (error) {
-        return c.json({ message: String(error) }, 400);
+        const message = isMcpAuthError(error)
+            ? "[MCP服务]连接失效，请重新认证"
+            : String(error);
+        return c.json({ message }, 400);
     }
 
     return c.json({ tools });

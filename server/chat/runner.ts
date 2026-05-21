@@ -30,6 +30,7 @@ import {
     toErrorMessage,
     truncate,
 } from "./utils";
+import { isMcpAuthError, clearInvalidOAuthTokens } from "../mcp/utils";
 
 export type ChatRunnerPayload = {
     prompt?: string;
@@ -265,9 +266,18 @@ async function runSingleAgent(params: {
     }
 
     if (error) {
+        const errorMessage = isMcpAuthError(error)
+            ? "[MCP服务]连接失效，请重新认证"
+            : toErrorMessage(error);
+
+        if (isMcpAuthError(error)) {
+            // 清除过期 OAuth tokens，让 UI 正确显示"未授权"状态
+            void clearInvalidOAuthTokens(params.uid);
+        }
+
         void log(
             params.requestId,
-            `Agent "${params.agentConfig.name}" (id=${params.agentConfig.id}) 运行出错: ${toErrorMessage(error)}`,
+            `Agent "${params.agentConfig.name}" (id=${params.agentConfig.id}) 运行出错: ${errorMessage}`,
         );
         await writeEvent(params.writer, params.encoder, {
             type: "error",
@@ -275,9 +285,9 @@ async function runSingleAgent(params: {
             activityId,
             agentId: params.agentConfig.id,
             agentName: params.agentConfig.name,
-            message: toErrorMessage(error),
+            message: errorMessage,
         });
-        return `[错误] ${toErrorMessage(error)}`;
+        return `[错误] ${errorMessage}`;
     }
 
     return agentOutput;

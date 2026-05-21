@@ -24,7 +24,6 @@ export default function AgentEditor() {
     const [uploadFiles, setUploadFiles] = useState<UploadFileLike[]>([]);
     const [files, setFiles] = useState<AttachedFile[]>([]);
     const agents = useAgentsStore((state) => state.agents);
-    const loading = useChatStore((state) => state.loading);
     const currentProjectId = useChatStore((state) => state.currentProjectId);
     const send = useChatStore((state) => state.send);
     const agentOptions = createAgentOptions(agents);
@@ -54,10 +53,6 @@ export default function AgentEditor() {
     };
 
     const submit = () => {
-        if (loading) {
-            return Promise.reject();
-        }
-
         const { prompt, agentIds, displayContent } = resolveSubmitPayload(
             value,
             agentOptions,
