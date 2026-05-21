@@ -149,6 +149,7 @@ export default function AgentEditor() {
                 border={false}
                 height="6em"
                 autoFocus
+                spellCheck={false}
                 value={value}
                 memtion={[
                     {

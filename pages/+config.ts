@@ -9,6 +9,9 @@ const config: Config = {
     title: "AZIR ❋",
     description: "Azir Agents",
     ssr: true,
+    bodyAttributes: {
+        code: "iannism",
+    },
 
     extends: [vikeReact],
 };

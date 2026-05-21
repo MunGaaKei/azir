@@ -169,10 +169,7 @@ export function MCPServerModal() {
         setSaving(false);
 
         if (error || !data) {
-            if (
-                error instanceof DOMException &&
-                error.name === "AbortError"
-            )
+            if (error instanceof DOMException && error.name === "AbortError")
                 return;
             if (error) Message.error(String(error));
             return;
@@ -283,6 +280,8 @@ export function MCPServerModal() {
                 <Form
                     form={form}
                     rules={{ name: required, config: required }}
+                    labelWidth="3em"
+                    labelRight
                 >
                     <Form.Field name="name" required>
                         <Input
@@ -306,7 +305,9 @@ export function MCPServerModal() {
                         <Input.Textarea
                             label={
                                 <Flex align="center" gap={12}>
-                                    配置 Json
+                                    <span style={{ flexShrink: 0 }}>
+                                        配置 Json
+                                    </span>
                                     <Button
                                         size="small"
                                         className="ml-auto"

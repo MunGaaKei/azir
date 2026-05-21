@@ -123,7 +123,7 @@ const Content = memo(function Content({
     onDelete: (filename: string) => void;
     onPreview: (file: DocFileInfo) => void;
 }) {
-    if (loading) return <Loading />;
+    if (loading) return <Loading className="py-12" />;
 
     if (files.length === 0) {
         return (
@@ -333,7 +333,11 @@ export default function Documents() {
                         <b>文档库</b>
 
                         <i className="ml-auto color-5 font-sm">
-                            [{formatFileSize(files.reduce((s, f) => s + f.size, 0))} / 20MB]
+                            [
+                            {formatFileSize(
+                                files.reduce((s, f) => s + f.size, 0),
+                            )}{" "}
+                            / 20MB]
                         </i>
                         <Upload key={uploadKey} onFilesChange={handleUpload}>
                             <Button flat size="small" loading={uploading}>
