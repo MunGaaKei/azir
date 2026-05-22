@@ -1,6 +1,7 @@
 import request from "@/server/request";
-import { Button, Flex, Input, Message, Modal } from "@ioca/react";
-import { Check, Copy } from "lucide-react";
+import { tryto } from "@/utils";
+import { Button, Flex, Input, Message, Modal, Popconfirm } from "@ioca/react";
+import { Check, Copy, Shredder } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 function maskUid(uid: string) {
@@ -13,6 +14,26 @@ function UidModal({ close }: { close: () => void }) {
     const [inputValue, setInputValue] = useState("");
     const [loading, setLoading] = useState(false);
     const [copied, setCopied] = useState(false);
+
+    const [clearing, setClearing] = useState(false);
+
+    async function clearMemories() {
+        setClearing(true);
+        const { error } = await tryto(async () => {
+            const res = await fetch("/api/memories", { method: "DELETE" });
+            if (!res.ok) {
+                const data = await res.json().catch(() => null);
+                throw new Error(data?.message || "清空失败");
+            }
+        });
+
+        if (error) {
+            Message.error(error.message);
+        } else {
+            Message.info("记忆已清空");
+        }
+        setClearing(false);
+    }
 
     useEffect(() => {
         request<{ uid: string }>("/api/uid")
@@ -107,6 +128,25 @@ function UidModal({ close }: { close: () => void }) {
                 >
                     https://github.com/MunGaaKei/azir
                 </a>
+            </Flex>
+
+            <Flex className="mt-12" align="end">
+                <Popconfirm
+                    icon={null}
+                    content="清空所有记忆"
+                    okButtonProps={{ className: "bg-error" }}
+                    onOk={clearMemories}
+                >
+                    <Button
+                        className="bg-error-0 mr-auto"
+                        secondary
+                        size="small"
+                        loading={clearing}
+                    >
+                        <Shredder size={16} /> 清除记忆
+                    </Button>
+                </Popconfirm>
+
                 <i className="color-5 ml-auto">by iann :)</i>
             </Flex>
         </div>

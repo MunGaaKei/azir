@@ -113,7 +113,7 @@ async function runSingleAgent(params: {
     let activityId = createActivityId();
 
     // Resolve and connect MCP servers
-    const mcpManager = await resolveMcpServers(params.agentConfig, params.uid);
+    const mcpManager = await resolveMcpServers(params.agentConfig, params.uid, params.requestId);
 
     const agent = await createAgent(
         params.agentConfig,

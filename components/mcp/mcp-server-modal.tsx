@@ -54,6 +54,20 @@ const TOKEN_TEMPLATE = JSON.stringify(
     2,
 );
 
+const STDIO_TEMPLATE = JSON.stringify(
+    {
+        transport: "stdio",
+        command: "npx",
+        args: ["-y", "mcp-server-package-name"],
+        env: {
+            API_KEY: "your-api-key",
+        },
+        allowedTools: ["*"],
+    },
+    null,
+    2,
+);
+
 export function MCPServerModal() {
     const servers = useMcpStore((state) => state.servers);
     const initServers = useMcpStore((state) => state.initServers);
@@ -327,6 +341,15 @@ export function MCPServerModal() {
                                         }
                                     >
                                         Token 模版
+                                    </Button>
+                                    <Button
+                                        size="small"
+                                        secondary
+                                        onClick={() =>
+                                            fillTemplate(STDIO_TEMPLATE)
+                                        }
+                                    >
+                                        Stdio 模版
                                     </Button>
                                 </Flex>
                             }

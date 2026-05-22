@@ -38,6 +38,95 @@ function formatFileSize(bytes: number): string {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function parseCsv(text: string): string[][] {
+    const rows: string[][] = [];
+    let current: string[] = [];
+    let field = "";
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (inQuotes) {
+            if (ch === '"') {
+                if (text[i + 1] === '"') {
+                    field += '"';
+                    i++;
+                } else {
+                    inQuotes = false;
+                }
+            } else {
+                field += ch;
+            }
+        } else {
+            if (ch === '"') {
+                inQuotes = true;
+            } else if (ch === ",") {
+                current.push(field);
+                field = "";
+            } else if (ch === "\n" || (ch === "\r" && text[i + 1] === "\n")) {
+                if (ch === "\r") i++;
+                current.push(field);
+                field = "";
+                if (current.length > 0 && current.some((c) => c !== "")) {
+                    rows.push(current);
+                }
+                current = [];
+            } else if (ch === "\r") {
+                current.push(field);
+                field = "";
+                if (current.length > 0 && current.some((c) => c !== "")) {
+                    rows.push(current);
+                }
+                current = [];
+            } else {
+                field += ch;
+            }
+        }
+    }
+    if (field || current.length > 0) {
+        current.push(field);
+        if (current.length > 0 && current.some((c) => c !== "")) {
+            rows.push(current);
+        }
+    }
+    return rows;
+}
+
+const CsvPreview = memo(function CsvPreview({
+    rows,
+}: {
+    rows: string[][];
+}) {
+    if (rows.length === 0) {
+        return <div className="color-5 py-8 ta-center">空表格</div>;
+    }
+
+    const [header, ...body] = rows;
+
+    return (
+        <div className={css.csvWrapper}>
+            <table className={css.csvTable}>
+                <thead>
+                    <tr>
+                        {header.map((cell, i) => (
+                            <th key={i}>{cell}</th>
+                        ))}
+                    </tr>
+                </thead>
+                <tbody>
+                    {body.map((row, i) => (
+                        <tr key={i}>
+                            {row.map((cell, j) => (
+                                <td key={j}>{cell}</td>
+                            ))}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+});
+
 async function downloadFile(filename: string) {
     const res = await fetch(
         `/api/docs/${encodeURIComponent(filename)}/download`,
@@ -282,26 +371,38 @@ export default function Documents() {
             try {
                 const res = await fetch(url);
                 const text = await res.text();
-                const isMd = file.filename.toLowerCase().endsWith(".md");
+                const nameLower = file.filename.toLowerCase();
+                const isMd = nameLower.endsWith(".md");
+                const isCsv = nameLower.endsWith(".csv");
 
                 preview({
                     items: [{ src: url, name: file.filename }],
                     controls: false,
-                    renderFile: () => (
-                        <div className={css.preview}>
-                            {isMd ? (
-                                <Streamdown
-                                    className={cssMd.markdown}
-                                    components={MarkdownComponents}
-                                    plugins={{ code: codePlugin }}
-                                >
-                                    {text}
-                                </Streamdown>
-                            ) : (
-                                text
-                            )}
-                        </div>
-                    ),
+                    renderFile: () => {
+                        if (isCsv) {
+                            const rows = parseCsv(text);
+                            return (
+                                <div className={css.preview}>
+                                    <CsvPreview rows={rows} />
+                                </div>
+                            );
+                        }
+                        return (
+                            <div className={css.preview}>
+                                {isMd ? (
+                                    <Streamdown
+                                        className={cssMd.markdown}
+                                        components={MarkdownComponents}
+                                        plugins={{ code: codePlugin }}
+                                    >
+                                        {text}
+                                    </Streamdown>
+                                ) : (
+                                    text
+                                )}
+                            </div>
+                        );
+                    },
                 });
             } catch {
                 Message.error("加载失败");

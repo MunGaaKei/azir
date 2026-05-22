@@ -338,6 +338,7 @@ api.get("/oauth/callback", async (c) => {
         );
 
         await provider.saveTokens(tokens);
+        invalidateMcpCache(pending.uid);
 
         return c.html(`<!DOCTYPE html>
 <html>

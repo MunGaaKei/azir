@@ -2,7 +2,7 @@ import Messages, { ScrollContext } from "@/components/messages";
 import { useChatStore } from "@/stores/chat";
 import { Button, Input, Popconfirm } from "@ioca/react";
 import clsx from "clsx";
-import { MessageSquarePlus, Shredder, SquareX } from "lucide-react";
+import { Eraser, MessageSquarePlus, SquareX } from "lucide-react";
 import { useEffect, useRef } from "react";
 import css from "./index.module.css";
 
@@ -19,14 +19,14 @@ function ClearButton({ projectId }: { projectId: string }) {
     return (
         <Popconfirm
             icon={null}
-            content="确定要清空对话"
+            content="清空本次对话内容"
             okButtonProps={{ className: "bg-error" }}
             onOk={() => {
                 clearMessages(projectId);
             }}
         >
             <Button flat square>
-                <Shredder size={20} />
+                <Eraser size={20} />
             </Button>
         </Popconfirm>
     );

@@ -1,4 +1,5 @@
 import {
+    MCPServerStdio,
     MCPServerStreamableHttp,
     MCPServerSSE,
     createMCPToolStaticFilter,
@@ -96,13 +97,10 @@ export function createMcpServerInstance(
     options?: { includeToolFilter?: boolean; uid?: string },
 ): MCPServer {
     const config = cfg.config;
-    const url = readString(config, "serverUrl", "url");
-    if (!url) throw new Error(`MCP server "${cfg.name}": 缺少 serverUrl`);
-
     const transport = readString(config, "transport") ?? "streamable-http";
-    if (transport !== "streamable-http" && transport !== "sse") {
+    if (transport !== "streamable-http" && transport !== "sse" && transport !== "stdio") {
         throw new Error(
-            `MCP server "${cfg.name}": transport 必须是 streamable-http 或 sse`,
+            `MCP server "${cfg.name}": transport 必须是 streamable-http, sse 或 stdio`,
         );
     }
 
@@ -114,6 +112,32 @@ export function createMcpServerInstance(
                   allowed: allowedTools,
               })
             : undefined;
+
+    if (transport === "stdio") {
+        const command = readString(config, "command");
+        if (!command) {
+            throw new Error(`MCP server "${cfg.name}": stdio 需要 command`);
+        }
+
+        const args = readStringArray(config, "args");
+        const env = readRecord(config, "env");
+        const cwd = readString(config, "cwd");
+        const stdioTimeout = typeof config.timeout === "number" ? config.timeout : undefined;
+
+        return new MCPServerStdio({
+            name: cfg.name,
+            command,
+            args,
+            env,
+            cwd,
+            timeout: stdioTimeout,
+            toolFilter,
+        });
+    }
+
+    // ---- streamable-http / sse transports below ----
+    const url = readString(config, "serverUrl", "url");
+    if (!url) throw new Error(`MCP server "${cfg.name}": 缺少 serverUrl`);
 
     // Check for OAuth auth type
     const authType = readString(config, "authType");
@@ -127,13 +151,21 @@ export function createMcpServerInstance(
     }
 
     if (authProvider) {
-        // OAuth flow: authProvider handles auth, no requestInit needed
+        // Also extract Bearer token from stored OAuth tokens for requestInit,
+        // in case the SDK's authProvider flow doesn't send the token on initial connection
+        const tokens = (config.oauth as Record<string, unknown> | undefined)
+            ?.tokens as { access_token?: string } | undefined;
+        const oauthRequestInit = tokens?.access_token
+            ? { headers: { Authorization: `Bearer ${tokens.access_token}` } }
+            : undefined;
+
         if (transport === "sse") {
             return new MCPServerSSE({
                 name: cfg.name,
                 url,
                 toolFilter,
                 authProvider,
+                requestInit: oauthRequestInit,
             });
         }
 
@@ -142,6 +174,7 @@ export function createMcpServerInstance(
             url,
             toolFilter,
             authProvider,
+            requestInit: oauthRequestInit,
         });
     }
 
