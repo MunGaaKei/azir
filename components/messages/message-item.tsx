@@ -1,5 +1,5 @@
 import { type ChatMessage } from "@/stores/chat";
-import { Button, Flex, Loading } from "@ioca/react";
+import { Button, Loading } from "@ioca/react";
 import { code } from "@streamdown/code";
 import { createMathPlugin } from "@streamdown/math";
 import clsx from "clsx";
@@ -51,7 +51,7 @@ export const MessageItem = memo(function MessageItem({
             )}
         >
             {isAssistant && (
-                <Flex className={css.messageHeader} align="center" gap={8}>
+                <div className={css.messageHeader}>
                     <Bot size={28} fill="var(--red-0)" />
                     {message.agentId != null && message.agentName && (
                         <AgentTag
@@ -72,7 +72,7 @@ export const MessageItem = memo(function MessageItem({
                             中断
                         </Button>
                     ) : null}
-                </Flex>
+                </div>
             )}
             <div
                 className={clsx(
@@ -125,13 +125,13 @@ export const MessageItem = memo(function MessageItem({
             </div>
 
             <div className={css.action}>
-                <Button flat size="small" square onClick={handleCopy}>
+                <Button secondary size="small" square onClick={handleCopy}>
                     {copied ? <Check size={14} /> : <Copy size={14} />}
                 </Button>
 
                 {isAssistant && message.requestId ? (
                     <Button
-                        flat
+                        secondary
                         size="small"
                         square
                         onClick={() => void onRetry(message.requestId ?? "")}

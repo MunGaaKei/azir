@@ -12,6 +12,9 @@
     position: relative;
     max-width: 86%;
     user-select: text;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
 }
 
 .body {
@@ -28,6 +31,9 @@
     margin-left: auto;
     margin-right: 12px;
     width: fit-content;
+    .action {
+        justify-content: flex-end;
+    }
 }
 
 .assistant {
@@ -72,6 +78,11 @@
 
 .messageHeader {
     padding: 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: sticky;
+    left: 12px;
 }
 
 /* Scrollable message list container */
@@ -109,6 +120,30 @@
 .agentGroup {
     max-width: 86%;
     flex-shrink: 0;
+    display: flex;
+    &:before,
+    &:after {
+        content: "\20";
+        position: sticky;
+        flex-shrink: 0;
+        z-index: 10;
+        width: 12px;
+        pointer-events: none;
+    }
+    &:after {
+        right: 0;
+        background: linear-gradient(to left, var(--background), transparent);
+    }
+    &:before {
+        left: 0;
+        background: linear-gradient(to right, var(--background), transparent);
+    }
+    .assistant {
+        margin-left: 0;
+        & + .assistant {
+            margin-left: 12px;
+        }
+    }
 }
 
 .agentGroupItem {

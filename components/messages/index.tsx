@@ -3,7 +3,6 @@ import { useChatStore } from "@/stores/chat";
 import { throttle } from "@/utils";
 import { Scroll } from "@ioca/react";
 import {
-    memo,
     useCallback,
     useContext,
     useEffect,
@@ -215,13 +214,7 @@ export default function Messages({ projectId }: MessagesProps) {
                                 {...sharedRowProps}
                             />
                         ) : (
-                            <Scroll
-                                className={css.agentGroup}
-                                style={{
-                                    display: "flex",
-                                    gap: 24,
-                                }}
-                            >
+                            <Scroll className={css.agentGroup}>
                                 {row.messages.map((msg) => (
                                     <MessageItem
                                         key={msg.id}
@@ -251,10 +244,7 @@ export default function Messages({ projectId }: MessagesProps) {
                     rowComponent={({ index, style }) => {
                         const row = displayRows[index];
                         return (
-                            <div
-                                style={style}
-                                className={css.virtualContainer}
-                            >
+                            <div style={style} className={css.virtualContainer}>
                                 {row.kind === "message" ? (
                                     <MessageItem
                                         copied={copiedId === row.message.id}
