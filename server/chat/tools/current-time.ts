@@ -1,6 +1,6 @@
 import { tool } from "@openai/agents";
 import { z } from "zod";
-import { getCurrentDateContext } from "../time";
+import { getCurrentDateContext } from "../prompt";
 
 export const currentTimeTool = tool({
 	name: "current_time",

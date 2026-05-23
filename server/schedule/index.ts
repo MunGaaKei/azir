@@ -1,5 +1,6 @@
 import { db } from "../db";
-import { resolveMcpServers, toErrorMessage } from "../chat/utils";
+import { toErrorMessage } from "../chat/utils";
+import { resolveMcpServers } from "../chat/mcp";
 import { createAgent, createRunner } from "../chat/provider";
 import { buildUserPrompt } from "../chat/prompt";
 import { FileSession } from "../chat/memories/file-session";
