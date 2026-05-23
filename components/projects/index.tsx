@@ -32,11 +32,45 @@ function ClearButton({ projectId }: { projectId: string }) {
     );
 }
 
+function CloseButton({ projectId }: { projectId: string }) {
+    const messageCount = useChatStore(
+        (state) =>
+            state.messages.filter((message) => message.projectId === projectId)
+                .length,
+    );
+    const removeProject = useChatStore((state) => state.removeProject);
+
+    if (projectId === "default-project") return null;
+
+    return (
+        <Popconfirm
+            icon={null}
+            content="确认关闭对话框"
+            okButtonProps={{ className: "bg-error" }}
+            disabled={messageCount === 0}
+            onOk={() => {
+                removeProject(projectId);
+            }}
+        >
+            <Button
+                flat
+                square
+                onClick={() => {
+                    if (messageCount === 0) {
+                        removeProject(projectId);
+                    }
+                }}
+            >
+                <SquareX size={20} />
+            </Button>
+        </Popconfirm>
+    );
+}
+
 export default function Projects() {
     const projects = useChatStore((state) => state.projects);
     const addProject = useChatStore((state) => state.addProject);
     const setCurrentProject = useChatStore((state) => state.setCurrentProject);
-    const removeProject = useChatStore((state) => state.removeProject);
     const setProjectName = useChatStore((state) => state.setProjectName);
     const currentProjectId = useChatStore((state) => state.currentProjectId);
     const hasUserScrolledRef = useRef(false);
@@ -105,20 +139,7 @@ export default function Projects() {
                             <MessageSquarePlus size={20} />
                         </Button>
 
-                        {project.id !== "default-project" && (
-                            <Popconfirm
-                                icon={null}
-                                content="确认关闭窗口"
-                                okButtonProps={{ className: "bg-error" }}
-                                onOk={() => {
-                                    removeProject(project.id);
-                                }}
-                            >
-                                <Button flat square>
-                                    <SquareX size={20} />
-                                </Button>
-                            </Popconfirm>
-                        )}
+                        <CloseButton projectId={project.id} />
                     </div>
 
                     <ScrollContext.Provider

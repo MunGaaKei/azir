@@ -4,7 +4,14 @@ import { code } from "@streamdown/code";
 import { createMathPlugin } from "@streamdown/math";
 import clsx from "clsx";
 import "katex/dist/katex.min.css";
-import { Bot, Check, CloudDownload, Copy, RotateCcw } from "lucide-react";
+import {
+    Bot,
+    Check,
+    CloudDownload,
+    Copy,
+    RotateCcw,
+    Square,
+} from "lucide-react";
 import { memo, useCallback, useMemo } from "react";
 import { Streamdown } from "streamdown";
 import { AgentTag } from "./agent-tag";
@@ -69,7 +76,12 @@ export const MessageItem = memo(function MessageItem({
                                 onStop(message.id, message.requestId)
                             }
                         >
-                            中断
+                            <span className="error">中断</span>
+                            <Square
+                                size={14}
+                                fill="var(--red)"
+                                stroke="var(--error)"
+                            />
                         </Button>
                     ) : null}
                 </div>

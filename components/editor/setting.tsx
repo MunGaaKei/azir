@@ -1,7 +1,8 @@
 import { Button, Checkbox, Popup } from "@ioca/react";
 import { SlidersHorizontal } from "lucide-react";
+import { memo } from "react";
 
-export default function ControlSetting({
+export default memo(function ControlSetting({
     chatMode,
     onChange,
 }: {
@@ -29,4 +30,4 @@ export default function ControlSetting({
             </Button>
         </Popup>
     );
-}
+});

@@ -20,7 +20,6 @@
     transition: all 0.12s;
     filter: grayscale(0.8);
     background: var(--background-opacity);
-    backdrop-filter: blur(4px);
     border-radius: var(--radius);
 
     &:hover {
@@ -57,9 +56,8 @@
         max-width: 200px;
     }
     :global(.i-input-item) {
-        border: none;
+        border-color: transparent;
         font-weight: 500;
-        font-size: 16px;
     }
     :global(.i-input) {
         padding: 0;

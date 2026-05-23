@@ -2,7 +2,7 @@ import { useAgentsStore } from "@/stores/agents";
 import { useChatStore } from "@/stores/chat";
 import { Button, Editor, Upload } from "@ioca/react";
 import { CornerRightUp, Paperclip } from "lucide-react";
-import { type KeyboardEvent, useState } from "react";
+import { type KeyboardEvent, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import css from "./index.module.css";
 import ControlSetting from "./setting";
@@ -26,7 +26,7 @@ export default function AgentEditor() {
     const agents = useAgentsStore((state) => state.agents);
     const currentProjectId = useChatStore((state) => state.currentProjectId);
     const send = useChatStore((state) => state.send);
-    const agentOptions = createAgentOptions(agents);
+    const agentOptions = useMemo(() => createAgentOptions(agents), [agents]);
 
     const handleFilesChange = (
         nextFiles: UploadFileLike[],
@@ -146,13 +146,16 @@ export default function AgentEditor() {
                 autoFocus
                 spellCheck={false}
                 value={value}
-                memtion={[
-                    {
-                        key: "@",
-                        options: agentOptions,
-                        insert: insertMention,
-                    },
-                ]}
+                memtion={useMemo(
+                    () => [
+                        {
+                            key: "@",
+                            options: agentOptions,
+                            insert: insertMention,
+                        },
+                    ],
+                    [agentOptions],
+                )}
                 onChange={setValue}
                 onEnter={handleEnter}
                 onKeyDown={handleKeyDown}

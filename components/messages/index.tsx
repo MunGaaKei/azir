@@ -16,6 +16,7 @@ import {
     List,
     useDynamicRowHeight,
     type ListImperativeAPI,
+    type RowComponentProps,
 } from "react-window";
 import css from "./index.module.css";
 import { MessageItem } from "./message-item";
@@ -241,38 +242,41 @@ export default function Messages({ projectId }: MessagesProps) {
                     rowCount={displayRows.length}
                     rowHeight={rowHeight}
                     onResize={handleResize}
-                    rowComponent={({ index, style }) => {
-                        const row = displayRows[index];
-                        return (
-                            <div style={style} className={css.virtualContainer}>
-                                {row.kind === "message" ? (
-                                    <MessageItem
-                                        copied={copiedId === row.message.id}
-                                        message={row.message}
-                                        {...sharedRowProps}
-                                    />
-                                ) : (
-                                    <Scroll
-                                        className={css.agentGroup}
-                                        style={{
-                                            display: "flex",
-                                            gap: 24,
-                                        }}
-                                    >
-                                        {row.messages.map((msg) => (
-                                            <MessageItem
-                                                key={msg.id}
-                                                className={css.agentGroupItem}
-                                                copied={copiedId === msg.id}
-                                                message={msg}
-                                                {...sharedRowProps}
-                                            />
-                                        ))}
-                                    </Scroll>
-                                )}
-                            </div>
-                        );
-                    }}
+                    rowComponent={useCallback(
+                        ({ index, style }: RowComponentProps) => {
+                            const row = displayRows[index];
+                            return (
+                                <div style={style} className={css.virtualContainer}>
+                                    {row.kind === "message" ? (
+                                        <MessageItem
+                                            copied={copiedId === row.message.id}
+                                            message={row.message}
+                                            {...sharedRowProps}
+                                        />
+                                    ) : (
+                                        <Scroll
+                                            className={css.agentGroup}
+                                            style={{
+                                                display: "flex",
+                                                gap: 24,
+                                            }}
+                                        >
+                                            {row.messages.map((msg) => (
+                                                <MessageItem
+                                                    key={msg.id}
+                                                    className={css.agentGroupItem}
+                                                    copied={copiedId === msg.id}
+                                                    message={msg}
+                                                    {...sharedRowProps}
+                                                />
+                                            ))}
+                                        </Scroll>
+                                    )}
+                                </div>
+                            );
+                        },
+                        [displayRows, copiedId, sharedRowProps],
+                    )}
                     rowProps={{}}
                     overscanCount={3}
                     className={css.list}

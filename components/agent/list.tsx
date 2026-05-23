@@ -5,6 +5,7 @@ import { Agent } from "@prisma/client";
 import clsx from "clsx";
 import { PlusSquare } from "lucide-react";
 import { useMemo, useRef } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { BotAnimate, BotIconHandle } from "../ui/bot-animate";
 import css from "./index.module.css";
 import { useAgentModal } from "./use-agent-modal";
@@ -48,10 +49,12 @@ function AgentItem({ agent, icon }: { agent: Agent; icon: string }) {
     const fill = (agent.meta as any)?.color ?? "transparent";
     const { openEdit } = useAgentModal();
 
-    const storeActivities = useActivityStore((state) => state.activities);
+    const agentActivities = useActivityStore(
+        useShallow((state) => state.activities.filter((a) => a.agentId === agent.id)),
+    );
     const latestActivity = useMemo(
-        () => getLatestActivity(agent, storeActivities),
-        [agent, storeActivities],
+        () => getLatestActivity(agent, agentActivities),
+        [agent, agentActivities],
     );
 
     return (
