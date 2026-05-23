@@ -1,9 +1,11 @@
 import { tryto } from "@/utils";
+import { resolveMentionPayload } from "@/utils/mention";
 import { Agent } from "@openai/agents";
 import { z } from "zod";
 import {
     getAgentCandidates,
     getAgentsByIds,
+    getAllAgents,
     type AgentWithModel,
 } from "../agent/store";
 import { buildUserPrompt, type ChatUploadFile } from "./prompt";
@@ -174,6 +176,44 @@ function toExecutionPlan(
         .filter((item): item is AgentExecutionPlanItem => !!item);
 }
 
+/**
+ * Attach agents @mentioned in existing plan items' descs as dependent tasks.
+ * This guarantees handoff targets always execute regardless of router decisions.
+ */
+async function attachMentionedAgents(
+    plan: AgentExecutionPlanItem[],
+    allAgents: AgentWithModel[],
+): Promise<AgentExecutionPlanItem[]> {
+    const mentionOptions = allAgents.map((c) => ({
+        label: c.name,
+        value: c.id,
+    }));
+    const planIds = new Set(plan.map((item) => item.agentConfig.id));
+    const extra: AgentExecutionPlanItem[] = [];
+
+    for (const item of plan) {
+        const { agentIds } = resolveMentionPayload(
+            item.agentConfig.desc || "",
+            mentionOptions,
+        );
+        for (const id of agentIds) {
+            if (planIds.has(id)) continue;
+            planIds.add(id);
+            const config = allAgents.find((a) => a.id === id);
+            if (config) {
+                extra.push({
+                    agentConfig: config,
+                    taskPrompt: "根据依赖 Agent 的输出执行任务",
+                    reason: `由 "${item.agentConfig.name}" 的描述中的 @mention 引用。`,
+                    dependsOn: [item.agentConfig.id],
+                });
+            }
+        }
+    }
+
+    return [...plan, ...extra];
+}
+
 export async function resolveAgentExecutionPlan(
     params: ResolveExecutionPlanParams,
 ): Promise<AgentExecutionPlanItem[]> {
@@ -188,9 +228,9 @@ export async function resolveAgentExecutionPlan(
                 candidates: agents,
                 preSelected: true,
             });
-            const executionPlan = toExecutionPlan(agents, plan);
+            let executionPlan = toExecutionPlan(agents, plan);
 
-            // Fill in any agents the router missed with the full prompt
+            // Fill in any explicitly selected agents the router missed
             const assignedIds = new Set(
                 executionPlan.map((item) => item.agentConfig.id),
             );
@@ -203,6 +243,10 @@ export async function resolveAgentExecutionPlan(
                     });
                 }
             }
+
+            // Attach agents @mentioned in any plan item's desc
+            const allAgents = await getAllAgents(params.uid);
+            executionPlan = await attachMentionedAgents(executionPlan, allAgents);
 
             return executionPlan;
         }

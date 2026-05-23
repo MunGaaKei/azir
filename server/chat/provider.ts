@@ -52,13 +52,15 @@ function getAgentPermissions(value: unknown): Set<AgentPermission> {
 function buildInstructions(
     agentConfig: AgentWithModel,
     options: AgentProviderOptions,
+    desc?: string,
 ) {
     const uploadedFiles = options.requestId
         ? getUploadedFiles(options.requestId)
         : [];
+    const descText = desc ?? agentConfig.desc;
     const instructions = [
         `你是 AI Agent "${agentConfig.name}"。`,
-        agentConfig.desc?.trim() ||
+        descText?.trim() ||
             "请根据用户需求提供准确、清晰、可执行的帮助。",
         "你是一个安静执行任务的助手。\n规则：\n- 不要汇报执行过程\n- 不要描述工具调用\n- 不要输出中间步骤\n- 仅输出最终结果",
         buildFileContextPrompt(uploadedFiles),
@@ -218,11 +220,13 @@ export async function createAgent(
     agentConfig: AgentWithModel,
     options: AgentProviderOptions = {},
     candidates?: AgentWithModel[],
-    depth = 0,
+    _depth = 0,
     mcpServers: MCPServer[] = [],
 ) {
-    const handoffAgents: Agent[] = [];
-    if (depth === 0 && candidates) {
+    let cleanDesc: string | undefined;
+
+    // Strip unresolved @mentions from instructions
+    if (candidates) {
         const mentionOptions = candidates.map((c) => ({
             label: c.name,
             value: c.id,
@@ -231,26 +235,27 @@ export async function createAgent(
             agentConfig.desc || "",
             mentionOptions,
         );
-        const handoffConfigs = candidates.filter((c) =>
-            agentIds.includes(c.id),
-        );
-        for (const config of handoffConfigs) {
-            const agent = await createAgent(
-                config,
-                options,
-                candidates,
-                depth + 1,
-            );
-            handoffAgents.push(agent);
+        const resolvedIds = new Set(candidates.map((c) => c.id));
+        const unresolvedNames = mentionOptions
+            .filter(
+                (opt) =>
+                    agentIds.includes(opt.value) &&
+                    !resolvedIds.has(opt.value),
+            )
+            .map((opt) => opt.label);
+        if (unresolvedNames.length > 0) {
+            cleanDesc = agentConfig.desc || "";
+            for (const name of unresolvedNames) {
+                cleanDesc = cleanDesc.replaceAll(`@${name}`, name);
+            }
         }
     }
 
     return new Agent({
         name: agentConfig.name,
-        instructions: buildInstructions(agentConfig, options),
+        instructions: buildInstructions(agentConfig, options, cleanDesc),
         model: agentConfig.model.name,
         tools: await resolveTools(agentConfig, options),
-        handoffs: handoffAgents,
         mcpServers,
     });
 }
