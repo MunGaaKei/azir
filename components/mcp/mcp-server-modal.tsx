@@ -1,17 +1,13 @@
 import request, { useAbort } from "@/server/request";
 import { useMcpStore } from "@/stores/mcp";
 import { tryto } from "@/utils";
-import { Button, Flex, Form, Input, Message } from "@ioca/react";
-import { Cpu } from "lucide-react";
+import { Button, Dropdown, Flex, Form, Input, Message } from "@ioca/react";
+import { Braces, Cpu } from "lucide-react";
 import PubSub from "pubsub-js";
-import { useEffect, useState } from "react";
-import {
-    SettingFooter,
-    SettingModal,
-    SettingPanel,
-    SettingSidebar,
-} from "../modalSetting";
-import { OAuthSection } from "./oauth-section";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { SettingFooter, SettingModal, SettingPanel, SettingSidebar } from "../modalSetting";
+import { MCP_SERVER_PRESETS } from "./constant";
+import { parseOAuthConfig } from "./oauth-section";
 import type { MCPRecord } from "./types";
 import { MCP_MODAL_OPEN_TOPIC, MCP_SERVERS_UPDATED_TOPIC } from "./types";
 
@@ -28,45 +24,18 @@ function formatJson(text: string): string {
     }
 }
 
-const OAUTH_TEMPLATE = JSON.stringify(
-    {
-        serverUrl: "https://mcp.notion.com/sse",
-        transport: "sse",
-        authType: "oauth",
-        oauth: {
-            redirectUri:
-                "https://sandsoldier.vercel.app/api/mcp/oauth/callback",
-        },
-        allowedTools: ["tool1", "tool2"],
-    },
-    null,
-    2,
-);
-
-const TOKEN_TEMPLATE = JSON.stringify(
-    {
-        serverUrl: "https://mcp.example.com/sse",
-        transport: "sse",
-        authorization: "Bearer ${YOUR_API_TOKEN}",
-        allowedTools: ["tool1", "tool2"],
-    },
-    null,
-    2,
-);
-
-const STDIO_TEMPLATE = JSON.stringify(
-    {
-        transport: "stdio",
-        command: "npx",
-        args: ["-y", "mcp-server-package-name"],
-        env: {
-            API_KEY: "your-api-key",
-        },
-        allowedTools: ["*"],
-    },
-    null,
-    2,
-);
+const OAuthInline = memo(function OAuthInline({ configStr, oauthLoading, onAuthorize }: { configStr: string; oauthLoading: boolean; onAuthorize: () => void }) {
+    const oi = parseOAuthConfig(configStr);
+    if (!oi) return null;
+    return (
+        <>
+            {oi.hasTokens ? <span className="color-5 font-sm">已授权</span> : <span className="error font-sm">未授权</span>}
+            <Button size="small" className="bg-blue" loading={oauthLoading} onClick={onAuthorize}>
+                {oi.hasTokens ? "重新授权" : "授权"}
+            </Button>
+        </>
+    );
+});
 
 export function MCPServerModal() {
     const servers = useMcpStore((state) => state.servers);
@@ -91,11 +60,6 @@ export function MCPServerModal() {
 
     const handleConfigChange = (v: string) => setConfigStr(v);
 
-    const fillTemplate = (template: string) => {
-        form.set({ config: template });
-        setConfigStr(template);
-    };
-
     // Listen for OAuth callback postMessage
     useEffect(() => {
         const handler = (event: MessageEvent) => {
@@ -119,15 +83,13 @@ export function MCPServerModal() {
         };
     }, [initServers]);
 
-    const editingServer =
-        editingId !== null
-            ? (servers.find((s) => s.id === editingId) ?? null)
-            : null;
+    const handleSidebarSelect = useCallback((id: number | string) => setEditingId(Number(id)), []);
+    const handleSidebarCreate = useCallback(() => setEditingId(null), []);
+
+    const editingServer = useMemo(() => (editingId !== null ? (servers.find((s) => s.id === editingId) ?? null) : null), [editingId, servers]);
 
     useEffect(() => {
-        const config = editingServer
-            ? JSON.stringify(editingServer.config, null, 2)
-            : "";
+        const config = editingServer ? JSON.stringify(editingServer.config, null, 2) : "";
         form.set({ config });
         setConfigStr(config);
         if (editingServer) {
@@ -183,8 +145,7 @@ export function MCPServerModal() {
         setSaving(false);
 
         if (error || !data) {
-            if (error instanceof DOMException && error.name === "AbortError")
-                return;
+            if (error instanceof DOMException && error.name === "AbortError") return;
             if (error) Message.error(String(error));
             return;
         }
@@ -203,25 +164,25 @@ export function MCPServerModal() {
                 signal: signal(),
             }),
         );
-        if (
-            error &&
-            !(error instanceof DOMException && error.name === "AbortError")
-        )
-            return;
+        if (error && !(error instanceof DOMException && error.name === "AbortError")) return;
 
         setServers(servers.filter((s) => s.id !== editingId));
         setEditingId(null);
     };
 
-    const closeModal = () => {
+    const closeModal = useCallback(() => {
         cancel();
         setVisible(false);
         setEditingId(null);
-    };
+    }, [cancel]);
 
-    const handleOAuthAuthorize = async () => {
-        if (!editingId) {
-            Message.error("请先保存 MCP 服务后再授权");
+    const handleOAuthAuthorize = useCallback(async () => {
+        const values = (await form.validate()) as Record<string, unknown>;
+        if (typeof values === "boolean") return;
+
+        const name = String(values.name ?? "").trim();
+        if (!name) {
+            Message.error("请填写服务名称");
             return;
         }
 
@@ -239,12 +200,34 @@ export function MCPServerModal() {
             return;
         }
 
-        if (
-            typeof config.authType !== "string" ||
-            config.authType !== "oauth"
-        ) {
+        if (typeof config.authType !== "string" || config.authType !== "oauth") {
             Message.error('配置 JSON 需要设置 "authType": "oauth"');
             return;
+        }
+
+        // Auto-save if the record hasn't been created yet
+        let targetId = editingId;
+        if (!targetId) {
+            const description = String(values.description ?? "").trim();
+            setSaving(true);
+            const { error, data } = await tryto(
+                request<MCPRecord>("/api/mcp/remote", {
+                    method: "POST",
+                    body: { name, description, config },
+                    signal: signal(),
+                }),
+            );
+            setSaving(false);
+
+            if (error || !data) {
+                if (error instanceof DOMException && error.name === "AbortError") return;
+                if (error) Message.error(String(error));
+                return;
+            }
+
+            targetId = data.id;
+            setEditingId(data.id);
+            refreshServers();
         }
 
         const redirectUri = window.location.origin + "/api/mcp/oauth/callback";
@@ -254,7 +237,7 @@ export function MCPServerModal() {
         const { error, data } = await tryto(
             request<{ authorizationUrl: string }>("/api/mcp/oauth/authorize", {
                 method: "POST",
-                body: { mcpId: editingId, redirectUri },
+                body: { mcpId: targetId, redirectUri },
             }),
         );
 
@@ -265,119 +248,85 @@ export function MCPServerModal() {
             return;
         }
 
-        const popup = window.open(
-            data.authorizationUrl,
-            "oauth-authorize",
-            "width=600,height=700",
-        );
+        const popup = window.open(data.authorizationUrl, "oauth-authorize", "width=600,height=700");
         if (!popup) {
             Message.error("弹出窗口被阻止，请在浏览器中允许弹出窗口");
         }
-    };
+    }, [editingId, form, signal, refreshServers]);
+
+    const sidebar = useMemo(
+        () => <SettingSidebar items={servers} editingId={editingId} onSelect={handleSidebarSelect} onCreate={handleSidebarCreate} renderItem={(s) => s.name} />,
+        [servers, editingId, handleSidebarSelect, handleSidebarCreate],
+    );
+
+    const configLabel = useMemo(
+        () => (
+            <Flex align="center" gap={12}>
+                <span style={{ flexShrink: 0 }}>配置 Json</span>
+                <Dropdown
+                    className="ml-auto"
+                    width={140}
+                    content={(close) =>
+                        MCP_SERVER_PRESETS.map((p) => (
+                            <Dropdown.Item
+                                key={p.label}
+                                type="option"
+                                onClick={() => {
+                                    close();
+                                    const json = JSON.stringify(p.config, null, 2);
+                                    form.set({
+                                        config: json,
+                                    });
+                                    setConfigStr(json);
+                                }}
+                            >
+                                {p.label}
+                            </Dropdown.Item>
+                        ))
+                    }
+                >
+                    <Button size="small" secondary className="mr-auto">
+                        <Braces size={16} />
+                        配置模版
+                    </Button>
+                </Dropdown>
+
+                <OAuthInline configStr={configStr} oauthLoading={oauthLoading} onAuthorize={handleOAuthAuthorize} />
+            </Flex>
+        ),
+        [configStr, oauthLoading, handleOAuthAuthorize, form],
+    );
 
     return (
-        <SettingModal
-            visible={visible}
-            onClose={closeModal}
-            title="MCP 服务管理"
-            icon={Cpu}
-            width={720}
-        >
-            <SettingSidebar
-                items={servers}
-                editingId={editingId}
-                onSelect={(id) => setEditingId(Number(id))}
-                onCreate={() => setEditingId(null)}
-                renderItem={(s) => s.name}
-            />
+        <SettingModal visible={visible} onClose={closeModal} title="MCP 服务管理" icon={Cpu} width={720}>
+            {sidebar}
             <SettingPanel>
-                <Form
-                    form={form}
-                    rules={{ name: required, config: required }}
-                    labelWidth="3em"
-                    labelRight
-                >
+                <Form form={form} rules={{ name: required, config: required }} labelWidth="3em" labelRight>
                     <Form.Field name="name" required>
-                        <Input
-                            label="名称"
-                            border
-                            labelInline
-                            placeholder="notion-server"
-                        />
+                        <Input label="名称" border labelInline placeholder="notion-server" />
                     </Form.Field>
 
                     <Form.Field name="description">
-                        <Input
-                            label="描述"
-                            border
-                            labelInline
-                            placeholder="MCP 服务描述"
-                        />
+                        <Input label="描述" border labelInline placeholder="MCP 服务描述" />
                     </Form.Field>
 
                     <Form.Field name="config" required>
                         <Input.Textarea
-                            label={
-                                <Flex align="center" gap={12}>
-                                    <span style={{ flexShrink: 0 }}>
-                                        配置 Json
-                                    </span>
-                                    <Button
-                                        size="small"
-                                        className="ml-auto"
-                                        secondary
-                                        onClick={() =>
-                                            fillTemplate(OAUTH_TEMPLATE)
-                                        }
-                                    >
-                                        OAuth 模版
-                                    </Button>
-                                    <Button
-                                        size="small"
-                                        className="ml-auto"
-                                        secondary
-                                        onClick={() =>
-                                            fillTemplate(TOKEN_TEMPLATE)
-                                        }
-                                    >
-                                        Token 模版
-                                    </Button>
-                                    <Button
-                                        size="small"
-                                        secondary
-                                        onClick={() =>
-                                            fillTemplate(STDIO_TEMPLATE)
-                                        }
-                                    >
-                                        Stdio 模版
-                                    </Button>
-                                </Flex>
-                            }
+                            style={{ ["--label-width" as any]: "100%" }}
+                            label={configLabel}
                             border
                             autoSize={false}
                             rows={16}
                             spellCheck={false}
                             resize={false}
-                            placeholder={OAUTH_TEMPLATE}
+                            placeholder='{"serverUrl": "https://..."}'
                             onBlur={handleConfigBlur}
                             onChange={handleConfigChange}
                         />
                     </Form.Field>
                 </Form>
 
-                <OAuthSection
-                    configStr={configStr}
-                    oauthLoading={oauthLoading}
-                    onAuthorize={handleOAuthAuthorize}
-                />
-
-                <SettingFooter
-                    editing={editingServer !== null}
-                    onDelete={handleDelete}
-                    onCancel={closeModal}
-                    onSubmit={() => void handleSave()}
-                    submitting={saving}
-                />
+                <SettingFooter editing={editingServer !== null} onDelete={handleDelete} onCancel={closeModal} onSubmit={() => void handleSave()} submitting={saving} />
             </SettingPanel>
         </SettingModal>
     );

@@ -16,7 +16,7 @@ function toData(data: {
 	desc: string | null;
 	modelId: number;
 	skills: string[];
-	permissions: Array<"websearch">;
+	permissions: Array<"websearch" | "docs">;
 	uid: string;
 	meta?: Record<string, unknown>;
 	routable?: boolean;
@@ -94,7 +94,7 @@ export async function createAgent(data: {
 	desc: string | null;
 	modelId: number;
 	skills: string[];
-	permissions: Array<"websearch">;
+	permissions: Array<"websearch" | "docs">;
 	uid: string;
 	meta?: Record<string, unknown>;
 	routable?: boolean;

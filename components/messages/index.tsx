@@ -206,7 +206,6 @@ export default function Messages({ projectId }: MessagesProps) {
                                 ? row.message.id
                                 : `group-${row.messages[0].id}`
                         }
-                        className={css.virtualContainer}
                     >
                         {row.kind === "message" ? (
                             <MessageItem
@@ -246,7 +245,7 @@ export default function Messages({ projectId }: MessagesProps) {
                         ({ index, style }: RowComponentProps) => {
                             const row = displayRows[index];
                             return (
-                                <div style={style} className={css.virtualContainer}>
+                                <div style={style}>
                                     {row.kind === "message" ? (
                                         <MessageItem
                                             copied={copiedId === row.message.id}
@@ -264,7 +263,9 @@ export default function Messages({ projectId }: MessagesProps) {
                                             {row.messages.map((msg) => (
                                                 <MessageItem
                                                     key={msg.id}
-                                                    className={css.agentGroupItem}
+                                                    className={
+                                                        css.agentGroupItem
+                                                    }
                                                     copied={copiedId === msg.id}
                                                     message={msg}
                                                     {...sharedRowProps}

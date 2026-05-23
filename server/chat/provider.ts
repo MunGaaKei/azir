@@ -199,8 +199,8 @@ export function createDefaultAgentConfig(): AgentWithModel {
         name: "默认助手",
         desc: "请使用默认模型配置，简洁、准确地回答用户问题。",
         model_id: 0,
-        skills: [],
-        permissions: [],
+        skills: [] as string[],
+        permissions: [] as string[],
         routable: true,
         meta: {},
         uid: "",
@@ -213,7 +213,7 @@ export function createDefaultAgentConfig(): AgentWithModel {
             uid: "",
             createdAt: new Date(0),
         },
-    } as AgentWithModel;
+    } as unknown as AgentWithModel;
 }
 
 export async function createAgent(

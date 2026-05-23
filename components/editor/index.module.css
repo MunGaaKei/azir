@@ -13,6 +13,7 @@
 
     :global(.i-editor-content) {
         padding: 12px;
+        font-family: inherit;
     }
 }
 

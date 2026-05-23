@@ -1,6 +1,6 @@
 import { Button, Flex } from "@ioca/react";
 
-function parseOAuthConfig(configStr: string) {
+export function parseOAuthConfig(configStr: string) {
     if (!configStr) return null;
 
     try {

@@ -93,11 +93,6 @@
     padding: 72px 12px 160px;
 }
 
-/* Virtual list wrapper */
-.virtualContainer {
-    padding-bottom: 36px;
-}
-
 /* Virtual list top/bottom padding */
 .virtualPadding {
     padding-top: 72px;
