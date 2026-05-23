@@ -22,6 +22,7 @@ type MessageItemProps = {
     onCopy: (id: string, content: string) => void;
     onRetry: (requestId: string) => void;
     onStop: (messageId: string, requestId?: string) => void;
+    className?: string;
 };
 
 export const MessageItem = memo(function MessageItem({
@@ -30,6 +31,7 @@ export const MessageItem = memo(function MessageItem({
     onCopy,
     onRetry,
     onStop,
+    className,
 }: MessageItemProps) {
     const { files, isAssistant, streamContent, stopped } = useMemo(
         () => getMessageRenderData(message),
@@ -45,6 +47,7 @@ export const MessageItem = memo(function MessageItem({
             className={clsx(
                 css.message,
                 isAssistant ? css.assistant : css.user,
+                className,
             )}
         >
             {isAssistant && (

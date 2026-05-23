@@ -11,6 +11,7 @@
 .message {
     position: relative;
     max-width: 86%;
+    user-select: text;
 }
 
 .body {
@@ -31,7 +32,6 @@
 
 .assistant {
     margin-left: 12px;
-    margin-right: auto;
 }
 
 .markdown {
@@ -50,8 +50,6 @@
 }
 
 .action {
-    position: absolute;
-    top: 100%;
     padding-top: 4px;
     display: flex;
     gap: 4px;
@@ -107,7 +105,13 @@
     background: var(--error-0);
 }
 
-/* Agent tag */
-.agentTag {
-    background: var(--blue-0);
+/* Agent group */
+.agentGroup {
+    max-width: 86%;
+    flex-shrink: 0;
+}
+
+.agentGroupItem {
+    max-width: 800px;
+    flex-shrink: 0;
 }

@@ -1,6 +1,7 @@
 import type { ChatMessage } from "@/stores/chat";
 import { useChatStore } from "@/stores/chat";
 import { throttle } from "@/utils";
+import { Scroll } from "@ioca/react";
 import {
     memo,
     useCallback,
@@ -27,6 +28,52 @@ const useIsomorphicLayoutEffect =
 
 const VIRTUALIZE_THRESHOLD = 12;
 const ROW_PADDING_BOTTOM = 36;
+
+type DisplayRow =
+    | { kind: "message"; message: ChatMessage }
+    | { kind: "group"; messages: ChatMessage[] };
+
+function buildDisplayRows(messages: ChatMessage[]): DisplayRow[] {
+    const rows: DisplayRow[] = [];
+    let i = 0;
+
+    while (i < messages.length) {
+        const current = messages[i];
+
+        if (current.role === "user") {
+            rows.push({ kind: "message", message: current });
+            i++;
+            continue;
+        }
+
+        // Collect consecutive assistant messages with the same requestId
+        const requestId = current.requestId;
+        const group: ChatMessage[] = [current];
+        i++;
+
+        while (i < messages.length) {
+            const next = messages[i];
+            if (
+                next.role === "assistant" &&
+                next.requestId &&
+                next.requestId === requestId
+            ) {
+                group.push(next);
+                i++;
+            } else {
+                break;
+            }
+        }
+
+        if (group.length === 1) {
+            rows.push({ kind: "message", message: group[0] });
+        } else {
+            rows.push({ kind: "group", messages: group });
+        }
+    }
+
+    return rows;
+}
 
 type MessagesProps = {
     projectId: string;
@@ -69,6 +116,8 @@ export default function Messages({ projectId }: MessagesProps) {
             ),
         [messages],
     );
+
+    const displayRows = useMemo(() => buildDisplayRows(messages), [messages]);
 
     const doScrollToBottom = useCallback(() => {
         const el = listRef.current?.element;
@@ -150,13 +199,40 @@ export default function Messages({ projectId }: MessagesProps) {
     if (!useVirtual) {
         return (
             <div ref={containerRef} className={css.scrollContainer}>
-                {messages.map((message) => (
-                    <div key={message.id} className={css.virtualContainer}>
-                        <MessageItem
-                            copied={copiedId === message.id}
-                            message={message}
-                            {...sharedRowProps}
-                        />
+                {displayRows.map((row) => (
+                    <div
+                        key={
+                            row.kind === "message"
+                                ? row.message.id
+                                : `group-${row.messages[0].id}`
+                        }
+                        className={css.virtualContainer}
+                    >
+                        {row.kind === "message" ? (
+                            <MessageItem
+                                copied={copiedId === row.message.id}
+                                message={row.message}
+                                {...sharedRowProps}
+                            />
+                        ) : (
+                            <Scroll
+                                className={css.agentGroup}
+                                style={{
+                                    display: "flex",
+                                    gap: 24,
+                                }}
+                            >
+                                {row.messages.map((msg) => (
+                                    <MessageItem
+                                        key={msg.id}
+                                        className={css.agentGroupItem}
+                                        copied={copiedId === msg.id}
+                                        message={msg}
+                                        {...sharedRowProps}
+                                    />
+                                ))}
+                            </Scroll>
+                        )}
                     </div>
                 ))}
             </div>
@@ -169,21 +245,41 @@ export default function Messages({ projectId }: MessagesProps) {
             renderProp={({ height, width }) => (
                 <List
                     listRef={listRef}
-                    rowCount={messages.length}
+                    rowCount={displayRows.length}
                     rowHeight={rowHeight}
                     onResize={handleResize}
                     rowComponent={({ index, style }) => {
-                        const message = messages[index];
+                        const row = displayRows[index];
                         return (
                             <div
                                 style={style}
                                 className={css.virtualContainer}
                             >
-                                <MessageItem
-                                    copied={copiedId === message.id}
-                                    message={message}
-                                    {...sharedRowProps}
-                                />
+                                {row.kind === "message" ? (
+                                    <MessageItem
+                                        copied={copiedId === row.message.id}
+                                        message={row.message}
+                                        {...sharedRowProps}
+                                    />
+                                ) : (
+                                    <Scroll
+                                        className={css.agentGroup}
+                                        style={{
+                                            display: "flex",
+                                            gap: 24,
+                                        }}
+                                    >
+                                        {row.messages.map((msg) => (
+                                            <MessageItem
+                                                key={msg.id}
+                                                className={css.agentGroupItem}
+                                                copied={copiedId === msg.id}
+                                                message={msg}
+                                                {...sharedRowProps}
+                                            />
+                                        ))}
+                                    </Scroll>
+                                )}
                             </div>
                         );
                     }}

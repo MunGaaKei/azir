@@ -92,7 +92,7 @@
 
 .name {
     background: var(--background-opacity);
-    backdrop-filter: blur(12px);
+    backdrop-filter: blur(4px);
     padding: 8px 0;
     border-radius: var(--radius);
     box-shadow: var(--shadow);
